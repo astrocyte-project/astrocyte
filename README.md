@@ -29,13 +29,13 @@
 | src/astrocyte/rvc/\_\_init\_\_.py      |        3 |        0 |        0 |        0 |    100% |           |
 | src/astrocyte/rvc/\_\_main\_\_.py      |        9 |        9 |        0 |        0 |      0% |      3-29 |
 | src/astrocyte/rvc/analysis.py          |      208 |        2 |       60 |        4 |     98% |115, 171-\>173, 322, 358-\>360 |
-| src/astrocyte/rvc/bridge.py            |      196 |       17 |       68 |       10 |     89% |118, 172, 179, 195, 207, 277, 280, 284, 298-\>297, 348, 367, 372-385 |
+| src/astrocyte/rvc/bridge.py            |      208 |       17 |       72 |       11 |     89% |118, 162-\>166, 183, 190, 214, 226, 308, 311, 315, 329-\>328, 379, 398, 403-416 |
 | src/astrocyte/rvc/decoder.py           |      104 |        9 |       44 |        7 |     88% |81-\>80, 83, 92-\>94, 122, 128-130, 132, 184-190 |
-| src/astrocyte/rvc/discovery.py         |      110 |        3 |       22 |        3 |     95% |94, 119, 304-\>306, 340 |
+| src/astrocyte/rvc/discovery.py         |      122 |        3 |       22 |        3 |     96% |99, 124, 337-\>339, 377 |
 | src/astrocyte/rvc/encoder.py           |       51 |        0 |       10 |        2 |     97% |100-\>102, 102-\>104 |
 | src/astrocyte/rvc/instances.py         |       87 |        3 |       20 |        3 |     94% |104-105, 132-\>131, 152 |
 | src/astrocyte/rvc/spec.py              |      140 |        2 |       36 |        2 |     98% |   64, 207 |
-| **TOTAL**                              | **1737** |  **144** |  **428** |   **52** | **90%** |           |
+| **TOTAL**                              | **1761** |  **144** |  **432** |   **53** | **90%** |           |
 
 
 ## Setup coverage badge
