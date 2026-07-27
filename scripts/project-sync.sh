@@ -114,10 +114,23 @@ done
 # ----- Issue types (validate-only) ----------------------------------------
 echo "== Issue types (validate-only) =="
 owner="${REPO%%/*}"
-org_types="$(gh api "orgs/${owner}/issue-types" --jq '.[].name' 2>/dev/null || true)"
-if [[ -z "$org_types" ]]; then
-  echo "  ::warning::could not read org issue types for ${owner} (needs org read scope); skipping validation"
+# Keep the three failure modes apart. Swallowing stderr made an API refusal
+# look identical to "every type is missing": the CI run reported all five types
+# absent while they existed and were in use, and still concluded success.
+err_file="$(mktemp)"
+set +e
+org_types="$(gh api "orgs/${owner}/issue-types" --jq '.[].name' 2>"$err_file")"
+api_rc=$?
+set -e
+if [[ $api_rc -ne 0 ]]; then
+  echo "  ::warning::could not read issue types for org ${owner} (exit ${api_rc}): $(tr '\n' ' ' <"$err_file" | cut -c1-200)"
+  echo "  ::warning::the token needs org read access; validation SKIPPED, not passed"
+  rm -f "$err_file"
+elif [[ -z "$org_types" ]]; then
+  rm -f "$err_file"
+  echo "  ::warning::org ${owner} returned no issue types at all; validation SKIPPED, not passed"
 else
+  rm -f "$err_file"
   py '
 import sys, yaml
 for t in yaml.safe_load(open(sys.argv[1])).get("issue_types", []) or []:
