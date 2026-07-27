@@ -9,6 +9,21 @@ Package versions are derived from `v*` git tags (see
 
 ## [Unreleased]
 
+### Security
+
+- **The RV-C bridge's generic command path is now default-deny** (ADR-014
+  amended). `handle_command` gated only on `listen_only`: its mapped-light
+  branch refuses instances absent from the coach map, but its generic branch,
+  `rvc/cmd/<dgn_name>/<instance>`, would encode **any** of the spec's 69 command
+  DGNs from raw fields — including `GENERATOR_COMMAND`, `SLIDE_COMMAND`,
+  `LEVELING_CONTROL_COMMAND`, `CHASSIS_MOBILITY_COMMAND` and
+  `DC_DISCONNECT_COMMAND` — reachable by anything on the node, since the broker
+  is anonymous on loopback. Clearing `listen_only` to enable light control would
+  therefore have exposed generator start/stop, which ADR-014 places in `deny`.
+  The path is now allowlisted by DGN name via `ASTROCYTE_RVC_COMMAND_ALLOWLIST`,
+  **empty by default**, with refusals counted and logged. Mapped-light control
+  is unaffected.
+
 ### Added
 
 - **Engine Preheat is decoded.** `1FE99` is promoted from `internal` to `data`

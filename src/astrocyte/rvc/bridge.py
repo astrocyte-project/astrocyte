@@ -56,6 +56,10 @@ class BridgeSettings(BaseSettings):
     publish_raw: bool = False
     source_address: int = 0x82
     state_prefix: str = "rvc"
+    #: DGN names the *generic* command path may encode, comma-separated.
+    #: EMPTY BY DEFAULT — default-deny, per ADR-014. Mapped-light control does
+    #: not go through that path and is unaffected by this setting.
+    command_allowlist: str = ""
     #: Path to the coach instance map (friendly names/areas + command
     #: translation). Unset → no naming and no light-command translation.
     instance_map: Path | None = None
@@ -73,6 +77,8 @@ class RvcBridge:
     settings: BridgeSettings
     decoder: RvcDecoder = field(default_factory=RvcDecoder)
     dropped_commands: int = 0
+    #: Generic-path commands refused because their DGN is not allowlisted.
+    denied_commands: int = 0
 
     def __post_init__(self) -> None:
         self.instances = (
@@ -85,6 +91,12 @@ class RvcBridge:
             availability_topic=self.status_topic,
             state_prefix=self.settings.state_prefix,
             instances=self.instances,
+        )
+        #: Parsed once. Names are upper-cased to match spec lookup.
+        self.command_allowlist: frozenset[str] = frozenset(
+            part.strip().upper()
+            for part in self.settings.command_allowlist.split(",")
+            if part.strip()
         )
         self._discovered: dict[str, MqttPublish] = {}
         #: switch instance -> {"brightness": level, "rgb": [r, g, b]} in RV-C
@@ -386,9 +398,29 @@ class RvcBridge:
             return can.Message(arbitration_id=can_id, data=data, is_extended_id=True)
 
         # Generic: rvc/cmd/<dgn_name>/<instance> with JSON raw fields.
+        #
+        # DEFAULT-DENY (ADR-014). This path will encode *any* command DGN in the
+        # spec from raw fields, which is 69 of them — including GENERATOR_COMMAND,
+        # SLIDE_COMMAND, LEVELING_CONTROL_COMMAND, CHASSIS_MOBILITY_COMMAND and
+        # DC_DISCONNECT_COMMAND. The broker is reachable by anything running on
+        # the node, so without a gate here, clearing `listen_only` would expose
+        # all of them at once and create exactly the reach ADR-014 puts in the
+        # `deny` tier ("generator start/stop ... not even human-approved agent
+        # actuation").
+        #
+        # The allowlist is empty unless configured, so enabling TX does not
+        # silently enable this path with it. Mapped-light control uses the branch
+        # above and is unaffected.
         if len(parts) == 4:
             definition = self.decoder.spec.by_name(parts[2].upper())
             if definition is None:
+                return None
+            if definition.name not in self.command_allowlist:
+                self.denied_commands += 1
+                logger.warning(
+                    "generic command %s denied: not in ASTROCYTE_RVC_COMMAND_ALLOWLIST",
+                    definition.name,
+                )
                 return None
             values = {str(k): int(v) for k, v in json.loads(payload).items()}
             values.setdefault("instance", int(parts[3]))

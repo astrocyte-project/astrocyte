@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted (amended 2026-07-27 — see [Amendments](#amendments))
 
 ## Context
 
@@ -134,6 +134,44 @@ flow.
 hardware-adjacent interlock; alone it is all-or-nothing and can't express
 "lights yes, generator no."
 **Why Not Chosen**: complementary, not sufficient — both layers are used.
+
+## Amendments
+
+### 2026-07-27 — the RV-C bridge enforces default-deny on its own command path
+
+The tier table above is enforced in `core/policy.py`, which sits on the MCP and
+API surfaces. The RV-C bridge's MQTT→CAN path does **not** pass through it, and
+that gap was wider than intended.
+
+`RvcBridge.handle_command` gated only on `listen_only`. Its mapped-light branch
+is properly constrained — it refuses any instance absent from the coach map —
+but its *generic* branch, `rvc/cmd/<dgn_name>/<instance>`, encoded **any command
+DGN in the spec** from raw JSON fields. That is 69 DGNs, among them
+`GENERATOR_COMMAND`, `GENERATOR_DEMAND_COMMAND`, `SLIDE_COMMAND`,
+`LEVELING_CONTROL_COMMAND`, `CHASSIS_MOBILITY_COMMAND`, `LOCK_COMMAND` and
+`DC_DISCONNECT_COMMAND`. The broker is anonymous on the node's loopback, so
+anything running there could reach it.
+
+Clearing `listen_only` would therefore have exposed generator start/stop —
+which this ADR places in `deny`, "not even human-approved agent actuation" — as
+a side effect of enabling light control. The default-deny principle was stated
+here but not implemented at that layer.
+
+**Decision:** the generic path is now allowlisted by DGN name via
+`ASTROCYTE_RVC_COMMAND_ALLOWLIST`, **empty by default**. Enabling TX no longer
+implicitly enables it, and refusals are counted (`denied_commands`) and logged.
+Mapped-light control keeps its own branch and its own map-membership guard, so
+it is unaffected.
+
+This is a floor, not a replacement for the tier engine: it constrains *which
+DGNs can be encoded at all*, while `policy.yml` continues to classify actions
+into `auto`/`control`/`guarded`/`deny`. Routing bridge commands through the tier
+engine remains the fuller answer.
+
+Note also that enabling TX requires **two** independent gates, not one: this
+setting, and the host's `can0` unit, which brings the interface up with
+`listen-only on` at the driver level. Flipping only the application setting
+transmits nothing.
 
 ## Related Decisions
 
