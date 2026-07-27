@@ -231,7 +231,9 @@ def test_ha_birth_includes_map_lights() -> None:
 
 
 def test_generic_json_command() -> None:
-    bridge = make_bridge(listen_only=False)
+    # The generic path is default-deny (ADR-014), so the DGN must be allowlisted
+    # for it to encode anything at all.
+    bridge = make_bridge(listen_only=False, command_allowlist="DC_DIMMER_COMMAND_2")
     frame = _one(
         bridge.handle_command(
             "rvc/cmd/dc_dimmer_command_2/12", b'{"desired_level": 150, "command": 0}'
@@ -395,3 +397,64 @@ def test_brightness_template_scales_against_full_scale_not_100() -> None:
     assert int(render(v={"brightness": 125.0})) == 255
     assert int(render(v={"brightness": 100.0})) == 204
     assert int(render(v={"brightness": 0.0})) == 0
+
+
+def _tx_bridge(allowlist: str = "") -> RvcBridge:
+    """A bridge with TX enabled, to exercise the command path at all."""
+    return make_bridge(
+        instances=LIGHT_MAP, listen_only=False, command_allowlist=allowlist
+    )
+
+
+@pytest.mark.parametrize(
+    "dgn_name",
+    [
+        "generator_command",
+        "slide_command",
+        "leveling_control_command",
+        "chassis_mobility_command",
+        "dc_disconnect_command",
+    ],
+)
+def test_generic_command_path_denies_by_default(dgn_name: str) -> None:
+    """Enabling TX must not hand out the whole command space (ADR-014).
+
+    The generic path encodes any command DGN in the spec from raw fields. These
+    are the ones that move the coach or cut its power, and generator start/stop
+    is explicitly `deny` in ADR-014 — not even human-approved.
+    """
+    bridge = _tx_bridge()
+    frames = bridge.handle_command(f"rvc/cmd/{dgn_name}/0", b'{"command": 1}')
+    assert frames == []
+    assert bridge.denied_commands == 1
+
+
+def test_generic_command_path_allows_only_listed_dgns() -> None:
+    bridge = _tx_bridge(allowlist="WATERHEATER_COMMAND")
+    allowed = bridge.handle_command(
+        "rvc/cmd/waterheater_command/1", b'{"operating_modes": 2}'
+    )
+    assert len(allowed) == 1
+    assert bridge.denied_commands == 0
+
+    denied = bridge.handle_command("rvc/cmd/generator_command/0", b'{"command": 1}')
+    assert denied == []
+    assert bridge.denied_commands == 1
+
+
+def test_allowlist_is_case_and_whitespace_insensitive() -> None:
+    bridge = _tx_bridge(allowlist=" waterheater_command , furnace_command ")
+    assert bridge.command_allowlist == {"WATERHEATER_COMMAND", "FURNACE_COMMAND"}
+
+
+def test_mapped_light_control_is_unaffected_by_the_allowlist() -> None:
+    """The light path has its own guard (map membership) and must keep working."""
+    bridge = _tx_bridge()
+    frames = bridge.handle_command("rvc/cmd/light/70/switch", b"ON")
+    assert len(frames) == 1
+    assert bridge.denied_commands == 0
+
+
+def test_unmapped_light_instance_still_refused() -> None:
+    bridge = _tx_bridge()
+    assert bridge.handle_command("rvc/cmd/light/999/switch", b"ON") == []
