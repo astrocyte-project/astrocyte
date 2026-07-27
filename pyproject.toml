@@ -44,7 +44,7 @@ agents = [    # LlamaIndex + Ollama (ADR-002 / ADR-004) — deliberately slim:
 ]
 rag = []      # ChromaDB + embedding pipeline (ADR-003) — Phase 2
 mcp = [       # FastMCP servers (ADR-007)
-    "fastmcp>=3.4.4",
+    "fastmcp>=3.4.5",
 ]
 rvc = [       # RV-C CAN bridge & decoder (ADR-012)
     "python-can>=4.4",
