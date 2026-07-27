@@ -129,10 +129,11 @@ def test_supplement_protocol_pgns_loaded(spec: RvcSpec) -> None:
         assert definition.category == "protocol"
 
 
-#: DGNs the supplement deliberately overrides from the vendored table. Only
-#: DC_DIMMER_STATUS_1 (1FFBB) — reclassified `internal` because it is inert on
-#: coach refcoach (issue #122). Any *other* collision is an accident to catch.
-_INTENTIONAL_OVERRIDES = {"1FFBB"}
+#: DGNs the supplement deliberately overrides from the vendored table:
+#: DC_DIMMER_STATUS_1 (1FFBB), reclassified `internal` because it is inert on
+#: coach refcoach (issue #122), and WATERHEATER_STATUS (1FFF7), restated only to
+#: correct one wrong value label. Any *other* collision is an accident to catch.
+_INTENTIONAL_OVERRIDES = {"1FFBB", "1FFF7"}
 
 
 def test_supplement_only_intentionally_shadows_vendored() -> None:
@@ -187,3 +188,43 @@ API_VERSION: 0
     assert definition.name == "TEST_DGN"
     assert definition.parameters[0].type == "uint8"
     assert definition.parameters[1].type == "uint16"  # width inferred from span
+
+
+def test_waterheater_burner_status_label_corrected() -> None:
+    """`burner status` must describe the burner, not the AC element.
+
+    The vendored table labels bit 01 "ac element is active". On coach 41crb the
+    field went active on the same timestamp as `operating modes` -> combustion
+    and cleared with it, and stayed off through every electric-only period, so
+    it tracks the diesel burner. The wrong label invites building an
+    "electric element on" indicator out of a burner field.
+    """
+    spec = RvcSpec.load_vendored()
+    definition = spec.get(0x1FFF7)
+    assert definition is not None
+    burner = next(p for p in definition.parameters if p.name == "burner_status")
+    assert burner.values[1] == "burner is active"
+
+
+def test_waterheater_override_keeps_every_vendored_parameter() -> None:
+    """The 1FFF7 override restates the body, so it must not drop a field.
+
+    The loader replaces a colliding DGN wholesale rather than merging
+    parameter-by-parameter, so a copy that silently lost a parameter would
+    remove telemetry without failing anything else.
+    """
+    vendored = RvcSpec.from_dict(_load_spec_resource("rvc-spec.yml"))
+    merged = RvcSpec.load_vendored()
+    base = vendored.get(0x1FFF7)
+    override = merged.get(0x1FFF7)
+    assert base is not None and override is not None
+    assert {p.name for p in override.parameters} == {p.name for p in base.parameters}
+
+
+def test_aquahot_heat_source_promoted_to_data() -> None:
+    """1FE99 carries Engine Preheat and must reach HA (was `internal`)."""
+    spec = RvcSpec.load_vendored()
+    definition = spec.get(0x1FE99)
+    assert definition is not None
+    assert definition.name == "AQUAHOT_HEAT_SOURCE_STATUS"
+    assert definition.category == "data"
