@@ -1,0 +1,3 @@
+# HA bearer token for VM's scrape of /api/prometheus — written from
+# ASTROCYTE_HA_TOKEN at deploy time; a secret, never committed.
+ha_token

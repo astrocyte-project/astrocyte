@@ -1,0 +1,178 @@
+# Astrocyte-local supplement to the vendored RV-C decode table (ADR-012).
+#
+# Part of Astrocyte, licensed AGPL-3.0 (see LICENSE). This file is OURS — it is
+# NOT part of the upstream Apache-2.0 `rvc-spec.yml`, which stays byte-identical
+# to its vendored commit so it can be re-vendored cleanly. The loader merges
+# this table on top of the vendored one (see `spec.py::RvcSpec.load_vendored`);
+# on a key collision this file wins.
+#
+# Each DGN body accepts the same schema as the vendored table, plus one extra
+# key the loader understands:
+#
+#   category: protocol | internal | data   (default: data)
+#
+#   - protocol : standard J1939 transport/management PGNs. Recognized so the
+#                bridge stops logging them as UNKNOWN, but never published to
+#                MQTT/HA (they carry no coach telemetry).
+#   - internal : proprietary / module-internal traffic we recognize but do not
+#                publish — module↔module node-sync chatter, inert config
+#                broadcasts, identification strings, and vendor-proprietary
+#                status frames not yet decoded into user telemetry. Suppressed
+#                like `protocol`; promote an entry to `data` once it is decoded.
+#   - data     : real telemetry; decoded, published, and HA-discovered.
+#
+# PDU1 note: the five entries below are keyed with the destination byte cleared
+# (`0EC00`, not `0ECFF`). The decoder maps any PDU1 frame (PF < 0xF0) onto its
+# destination-cleared PGN before lookup and records the real destination on
+# `DecodedMessage.destination_address`. So one entry covers every destination.
+#
+# Provenance: the classification comes from the first real-bus captures on coach
+# refcoach (2026-07-21); see issue #123.
+
+---
+
+API_VERSION: 0
+
+# --- Bucket A: standard J1939 protocol layer (PDU1, destination-specific) -----
+
+"0E800":
+  name: ACKNOWLEDGMENT
+  category: protocol
+
+"0EA00":
+  name: PGN_REQUEST
+  category: protocol
+
+"0EB00":
+  name: TP_DT
+  category: protocol
+
+"0EC00":
+  name: TP_CM
+  category: protocol
+
+"0EE00":
+  name: ADDRESS_CLAIMED
+  category: protocol
+
+# --- Bucket B: Firefly module↔module node-sync (proprietary, PDU1) ------------
+#
+# High-volume proprietary chatter between Firefly modules, addressed to specific
+# nodes (0x92, 0x8E, ...). In the 2026-07-21 walk-through capture these were the
+# bulk of the UNKNOWN frames — 16F92 (12,716), 16392 (12,716), 16E92 (6,733),
+# 16F8E (299), 16C92 (260). They carry no user-facing telemetry; recognizing
+# them as `internal` stops the ~9 Hz stream from being logged as UNKNOWN or
+# hammering MQTT/HA. Keyed by destination-cleared base PGN, so one entry covers
+# every destination via the decoder's PDU1 fallback. See issue #123.
+
+"16300":
+  name: FIREFLY_NODE_SYNC_16300
+  category: internal
+
+"16C00":
+  name: FIREFLY_NODE_SYNC_16C00
+  category: internal
+
+"16E00":
+  name: FIREFLY_NODE_SYNC_16E00
+  category: internal
+
+"16F00":
+  name: FIREFLY_NODE_SYNC_16F00
+  category: internal
+
+# --- Coach refcoach: DC_DIMMER_STATUS_1 is inert (issue #122) --------------------
+#
+# The 2026-07-23 on-bus session proved this coach's DC_DIMMER_STATUS_1 (1FFBB)
+# broadcasts a FIXED per-instance colour-config pattern every ~133 s and never
+# reflects live light state (master_brightness = 0xFF; R/G/B static across every
+# sweep despite active toggling). It cannot source HA light state, so it is
+# reclassified `internal` to keep 36 instances of static config out of MQTT/HA.
+# HA lights are built from the DC_DIMMER_COMMAND_2 map instead (ADR-012).
+
+"1FFBB":
+  name: DC_DIMMER_STATUS_1
+  category: internal
+
+# --- Coach refcoach: remaining proprietary broadcasts (issue #123) ----------------
+#
+# The 2026-07-21 + 2026-07-23 captures left 14 UNKNOWN DGN kinds after buckets A/B
+# above (~10% of frames). None are standard RV-C DGNs missing from the vendored
+# table — every one is vendor-proprietary (J1939 Proprietary-B PGNs 0xFFxx, or
+# manufacturer DGNs from specific nodes). We recognize them as `internal` so the
+# bridge stops logging them as UNKNOWN and the clean-decode soak evidence for the
+# TX-enable gate (ADR-014) is not drowned in noise. Names encode what the evidence
+# supports and no more; unidentified nodes get a neutral PROP_* name keyed on the
+# DGN. src 0x9B is the confirmed DC dimmer / lighting controller (it also sources
+# DC_DIMMER_COMMAND_2, issue #122).
+
+# Lighting controller (src 0x9B) per-channel status. byte0 is a channel index
+# (71 seen, grouped in RGB-like triplets), byte7 an on/off bit that DID track
+# physical toggles across captures — so this carries real per-channel light
+# state. NOT promoted to `data` yet: its channel space does not line up with the
+# DC_DIMMER_COMMAND_2 instance map (41-94) that HA lights are built from, so
+# publishing it would create unmapped, conflicting entities. Promote to `data`
+# after the RGB-fixture reconcile pass maps channels -> fixtures (issue #122).
+"15FCE":
+  name: DC_DIMMER_CHANNEL_STATUS
+  category: internal
+
+# Lighting controller (src 0x9B) proprietary status, addressed (PDU1) to nodes
+# 0xDC and 0xFD — base-keyed so one entry covers both, like the node-sync block.
+"1AA00":
+  name: DC_DIMMER_PROP_1AA00
+  category: internal
+
+# Lighting controller (src 0x9B) identification broadcast — payload begins with
+# ASCII "ID" (49 44 ...), a fixed product/ident string.
+"1FACF":
+  name: DC_DIMMER_IDENT
+  category: internal
+
+# Lighting controller (src 0x9B) low-rate proprietary status.
+"1FBDA":
+  name: DC_DIMMER_PROP_1FBDA
+  category: internal
+
+# J1939 Proprietary-B broadcasts (PGN 0xFFxx) — manufacturer-defined, no public
+# decode. 0FF01 is emitted by many nodes; 0FF2C/0FF2D by node 0x96.
+"0FF01":
+  name: PROP_B_0FF01
+  category: internal
+
+"0FF2C":
+  name: PROP_B_0FF2C
+  category: internal
+
+"0FF2D":
+  name: PROP_B_0FF2D
+  category: internal
+
+# Proprietary status families from individual modules, keyed exact (PDU2). Node
+# 0x24 emits 1FE80/1FE82/1FDFF; node 0x96 emits 1FE99; node 0xFD emits 1FACE (a
+# two-part identification frame, 0xAA-filled). 1FEA3 (node 0xE1) looks like live
+# analog telemetry — byte5 sweeps a wide range at ~1.4 Hz — and is the best
+# candidate to promote to `data` once the node and scaling are identified.
+"1FE80":
+  name: PROP_STATUS_1FE80
+  category: internal
+
+"1FE82":
+  name: PROP_STATUS_1FE82
+  category: internal
+
+"1FE99":
+  name: PROP_STATUS_1FE99
+  category: internal
+
+"1FDFF":
+  name: PROP_STATUS_1FDFF
+  category: internal
+
+"1FEA3":
+  name: PROP_STATUS_1FEA3
+  category: internal
+
+"1FACE":
+  name: PROP_IDENT_1FACE
+  category: internal

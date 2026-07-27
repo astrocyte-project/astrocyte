@@ -1,0 +1,7 @@
+- Astrocyte:
+    - Repo:
+        - abbr: GH
+          href: https://github.com/astrocyte-project/astrocyte
+    - Runbooks:
+        - abbr: RB
+          href: https://github.com/astrocyte-project/astrocyte/tree/main/docs/runbooks

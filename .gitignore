@@ -1,0 +1,49 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.env
+.python-version.local
+
+# ---- Test / coverage ----
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# ---- Node / web ----
+node_modules/
+web/dist/
+web/coverage/
+*.tsbuildinfo
+
+# ---- Docker ----
+*.pid
+
+# ---- Editors / OS ----
+.idea/
+*.swp
+.DS_Store
+
+# ---- Claude Code ----
+# Personas/prompts under .claude/ are committed symlinks into .github/;
+# local machine settings are not.
+.claude/settings.local.json
+
+# Deployment-specific config supplied by the operator's own inventory repo and
+# mounted via HA_DASHBOARD / HA_AUTOMATIONS / HA_PACKAGES / RVC_INSTANCE_MAP.
+# Only the *.example.* counterparts belong in this repo (ADR-012).
+deploy/coach/config/rvc-instances.yml
+deploy/coach/config/homeassistant/coach-overview.yaml
+deploy/coach/config/homeassistant/automations.yaml
+deploy/coach/config/homeassistant/energy_prefs.json
+deploy/coach/config/homeassistant/packages/*
+!deploy/coach/config/homeassistant/packages/.gitkeep

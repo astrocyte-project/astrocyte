@@ -1,0 +1,33 @@
+# Long-term metrics store for the COACH (astrocyte/coach-node), living on gpu-node's NVMe.
+#
+# Why here: coach-node's rootfs is eMMC (/dev/mmcblk0) and continuous metric writes cause
+# flash wear, so coach-node keeps a short hot window and pushes history here.
+#
+# Why PUSH (coach-node -> gpu-node) rather than gpu-node scraping coach-node: the astrocyte coach stack
+# deliberately binds every service to loopback. Pulling would mean exposing coach-node's
+# metrics port and reversing that decision; pushing does not.
+#
+# gpu-node is NOT always online (it is the sheddable load when boondocking). coach-node's vmagent
+# buffers to a capped on-disk queue and backfills when this comes back.
+
+[Unit]
+Description=Coach long-term metrics (VictoriaMetrics)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+ContainerName=coach-metrics-lt
+Image=docker.io/victoriametrics/victoria-metrics:v1.111.0
+Volume=coach-metrics-lt.volume:/vmdata
+# Bound to 0.0.0.0 ON PURPOSE: gpu-node moves between its wired (.20.20) and Wi-Fi
+# (.20.21) addresses, and pinning either one makes the container fail to bind when
+# that interface is down. Access control is firewalld's job, not the bind address —
+# a rich rule permits 8428 from coach-node (192.0.2.10) alone.
+PublishPort=8428:8428
+Exec=-storageDataPath=/vmdata -retentionPeriod=60 -httpListenAddr=:8428
+
+[Service]
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

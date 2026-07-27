@@ -1,0 +1,126 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "astrocyte"
+description = "Astrocyte — a Self-Hosted AI Operating System managed by agents."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "AGPL-3.0-or-later"
+authors = [{ name = "astrocyte-project" }]
+keywords = ["self-hosted", "ai", "agents", "mcp", "rag", "docker"]
+dynamic = ["version"]
+dependencies = [
+    "fastapi>=0.140.0",
+    "uvicorn[standard]>=0.51.0",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "httpx>=0.28",
+    "pyyaml>=6.0",
+    # Prometheus /metrics for the observability stack (ADR-006 / issue #33).
+    "prometheus-fastapi-instrumentator>=7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/astrocyte-project/astrocyte"
+Repository = "https://github.com/astrocyte-project/astrocyte"
+Issues = "https://github.com/astrocyte-project/astrocyte/issues"
+
+[project.scripts]
+aios = "astrocyte.cli.main:main"
+astro-rvc-bridge = "astrocyte.rvc.__main__:main"
+astro-rvc-analyze = "astrocyte.rvc.analysis:main"
+
+# Heavy, phase-specific runtime stacks are introduced in their own issues rather
+# than carried in the base install. Declaring the groups here establishes the
+# convention; the dependency lists are populated as each phase lands.
+[project.optional-dependencies]
+agents = [    # LlamaIndex + Ollama (ADR-002 / ADR-004) — deliberately slim:
+    # only core + the Ollama LLM binding, not the fat meta-package (CVE and
+    # image-size surface, see ADR-010 delivery notes).
+    "llama-index-core>=0.12",
+    "llama-index-llms-ollama>=0.5",
+]
+rag = []      # ChromaDB + embedding pipeline (ADR-003) — Phase 2
+mcp = [       # FastMCP servers (ADR-007)
+    "fastmcp>=3.4.4",
+]
+rvc = [       # RV-C CAN bridge & decoder (ADR-012)
+    "python-can>=4.4",
+    "aiomqtt>=2.0",
+    # python-can's udp_multicast backend (the `sim` compose profile / CI e2e
+    # bus) imports msgpack and raises CanInterfaceNotImplementedError without
+    # it. Not pulled in transitively, so declare it explicitly.
+    "msgpack>=1.0",
+]
+ha = [        # Home Assistant client + MCP server (ADR-011)
+    "websockets>=16.1.1",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.0",
+    "mypy>=2.3.0",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "httpx>=0.28",
+    "pip-audit>=2.7",
+    "pre-commit>=4.6.1",
+    "types-pyyaml>=6.0.12.20260518",
+]
+
+# --- uv resolver constraints --------------------------------------------------
+# Security floors for TRANSITIVE deps we don't declare directly. These only bind
+# versions already pulled into the graph; they never add a dependency.
+#   nltk: pulled by llama-index-core (agents extra); CVE-2026-54293 (HIGH, path
+#   traversal / info disclosure) is fixed in 3.10.0. Drop when the parent's floor
+#   moves past it.
+[tool.uv]
+constraint-dependencies = ["nltk>=3.10.0"]
+
+# --- Build / versioning -------------------------------------------------------
+# The package version is derived from the latest `v*` git tag (single source of
+# truth); no manual __version__ bumps. See docs/adr/ADR-008.
+[tool.hatch.version]
+source = "vcs"
+raw-options = { version_scheme = "no-guess-dev", local_scheme = "no-local-version", fallback_version = "0.0.0" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/astrocyte"]
+
+# --- Ruff (lint + format; replaces Black) ------------------------------------
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+# --- mypy (strict) -----------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+no_implicit_optional = true
+mypy_path = "src"
+packages = ["astrocyte"]
+
+# llama-index ships partial typing; its Ollama binding has no py.typed marker.
+[[tool.mypy.overrides]]
+module = ["llama_index.*"]
+ignore_missing_imports = true
+
+# --- pytest + coverage -------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "--cov=astrocyte --cov-report=xml --cov-report=term-missing --cov-fail-under=80"
+markers = [
+    "vcan: integration test requiring a vcan0 SocketCAN interface and an MQTT broker (Linux; auto-skipped elsewhere)",
+]
+
+[tool.coverage.run]
+source = ["astrocyte"]
+branch = true
+relative_files = true  # required by py-cov-action/python-coverage-comment-action

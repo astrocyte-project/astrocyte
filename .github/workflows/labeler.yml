@@ -1,0 +1,30 @@
+name: Labeler
+
+# Auto-applies component:* labels to PRs based on the files they touch,
+# using the path map in .github/labeler.yml.
+#
+# Uses pull_request_target so the workflow token can write labels on PRs from
+# forks. It deliberately does NOT check out the PR head, so untrusted code is
+# never executed — actions/labeler only inspects the changed-file list.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: labeler-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    name: Apply component labels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v7
+        with:
+          configuration-path: .github/labeler.yml
+          sync-labels: false

@@ -1,0 +1,19 @@
+# Keep the build context small; the Dockerfile copies only what it needs.
+.git
+.github
+.venv
+venv
+web/node_modules
+web/dist
+docs
+tests
+**/__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+coverage.xml
+htmlcov
+*.md
+!README.md

@@ -1,0 +1,47 @@
+# Node service directory. hrefs are loopback (127.0.0.1) — reach them via SSH
+# tunnel until the tailnet lands (#90), at which point swap in the tailnet
+# hostname. Live widgets pull from the same loopback endpoints on the node.
+- Coach Core:
+    - Home Assistant:
+        href: http://127.0.0.1:8123
+        description: Coach automation & telemetry hub
+        icon: home-assistant
+        server: my-docker
+        container: astrocyte-coach-homeassistant-1
+        widget:
+          type: homeassistant
+          url: http://127.0.0.1:8123
+          key: "{{HOMEPAGE_VAR_HA_TOKEN}}"
+    - Astrocyte API:
+        href: http://127.0.0.1:8000/health
+        description: aios API + HA MCP (ADR-014)
+        icon: si-fastapi
+        server: my-docker
+        container: astrocyte-coach-api-1
+
+- Observability:
+    - Grafana:
+        href: http://127.0.0.1:3000
+        description: Dashboards — energy & system health
+        icon: grafana
+        server: my-docker
+        container: astrocyte-coach-grafana-1
+        widget:
+          type: grafana
+          url: http://127.0.0.1:3000
+          username: "{{HOMEPAGE_VAR_GRAFANA_USER}}"
+          password: "{{HOMEPAGE_VAR_GRAFANA_PASSWORD}}"
+    - VictoriaMetrics:
+        href: http://127.0.0.1:8428
+        description: Time-series database (metrics)
+        icon: si-victoriametrics
+        server: my-docker
+        container: astrocyte-coach-victoriametrics-1
+
+- Apps:
+    - Nextcloud:
+        href: http://127.0.0.1:8082
+        description: Files (--profile apps)
+        icon: nextcloud
+        server: my-docker
+        container: astrocyte-coach-nextcloud-1

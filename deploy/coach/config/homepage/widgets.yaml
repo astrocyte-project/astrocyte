@@ -1,0 +1,13 @@
+- greeting:
+    text_size: xl
+    text: "Luna · Astrocyte Coach Node"
+- datetime:
+    text_size: l
+    format:
+      dateStyle: full
+      timeStyle: short
+- resources:
+    label: Node
+    cpu: true
+    memory: true
+    disk: /

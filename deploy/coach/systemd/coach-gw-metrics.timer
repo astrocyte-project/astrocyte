@@ -1,0 +1,11 @@
+[Unit]
+Description=Poll coach-router gateway quality every 30s (matches the VM scrape interval)
+
+[Timer]
+OnBootSec=60s
+OnUnitActiveSec=30s
+AccuracySec=1s
+Unit=coach-gw-metrics.service
+
+[Install]
+WantedBy=timers.target

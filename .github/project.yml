@@ -1,0 +1,156 @@
+# Declarative project-management spec for Astrocyte.
+#
+# This file is the single source of truth for repo labels, the release
+# milestones, the org issue-type taxonomy, and the org Project board's custom
+# fields. It is reconciled by `scripts/project-sync.sh` (run locally by a
+# maintainer, or by the `project-sync` workflow once PROJECT_ADMIN_TOKEN is set).
+#
+# The reconciler is NON-DESTRUCTIVE: it creates/updates/renames the entries
+# listed here but never deletes labels/milestones that are absent (e.g.
+# Dependabot's auto-labels). See docs/project-management.md for the full model.
+
+# ---------------------------------------------------------------------------
+# Labels
+#   `from:` renames an existing label in place (preserving issue associations).
+# ---------------------------------------------------------------------------
+labels:
+  # -- Component labels (path-routed by .github/labeler.yml) ------------------
+  - name: "component:api"
+    color: "1d76db"
+    description: "Component: FastAPI service (src/astrocyte/api)"
+  - name: "component:cli"
+    color: "1d76db"
+    description: "Component: aios CLI (src/astrocyte/cli)"
+  - name: "component:core"
+    color: "1d76db"
+    description: "Component: shared core (src/astrocyte/core)"
+  - name: "component:agent"
+    from: "agent"
+    color: "1d76db"
+    description: "Component: agent persona or skill"
+  - name: "component:mcp"
+    from: "mcp"
+    color: "1d76db"
+    description: "Component: MCP server integration"
+  - name: "component:web"
+    from: "ui"
+    color: "1d76db"
+    description: "Component: web UI / frontend (web/)"
+  - name: "component:ci"
+    from: "ci"
+    color: "1d76db"
+    description: "Component: CI/CD & automation"
+  - name: "component:devx"
+    from: "devx"
+    color: "1d76db"
+    description: "Component: developer experience & tooling"
+  - name: "component:docs"
+    color: "1d76db"
+    description: "Component: documentation"
+  - name: "component:docker"
+    color: "1d76db"
+    description: "Component: container packaging (docker/)"
+  - name: "component:rvc"
+    color: "1d76db"
+    description: "Component: RV-C CAN bridge & decoder (src/astrocyte/rvc)"
+  - name: "component:ha"
+    color: "1d76db"
+    description: "Component: Home Assistant integration (src/astrocyte/ha)"
+  - name: "component:rag"
+    color: "1d76db"
+    description: "Component: RAG layer & vector store"
+  - name: "component:backup"
+    color: "1d76db"
+    description: "Component: atomic backup & restore"
+  - name: "component:network"
+    color: "1d76db"
+    description: "Component: zero-trust networking"
+
+  # -- Phase labels (thematic; retained as-is) -------------------------------
+  - name: "phase-0"
+    color: "0052cc"
+    description: "Foundation & governance"
+  - name: "phase-1"
+    color: "0075ca"
+    description: "Ops Agent & curated apps"
+  - name: "phase-2"
+    color: "00b4d8"
+    description: "RAG layer & unified search"
+  - name: "phase-3"
+    color: "2ea043"
+    description: "Atomic backup & polish"
+
+  # -- Meta labels -----------------------------------------------------------
+  - name: "architecture"
+    color: "e4e669"
+    description: "Core design & ADRs"
+  - name: "epic"
+    color: "3e4b9e"
+    description: "Tracks a multi-issue initiative via sub-issues"
+  - name: "backlog"
+    color: "cccccc"
+    description: "Not yet scheduled to a milestone"
+  - name: "needs-triage"
+    color: "e99695"
+    description: "Awaiting triage (type/milestone/component)"
+  - name: "blocked"
+    color: "b60205"
+    description: "Blocked by another issue or external factor"
+  - name: "rv-deployment"
+    color: "d93f0b"
+    description: "RV reference deployment initiative (ADR-010)"
+
+# ---------------------------------------------------------------------------
+# Issue types (org-level; already enabled on astrocyte-project). Validate-only: the
+# reconciler warns if any are missing but does not create org objects here.
+# ---------------------------------------------------------------------------
+issue_types:
+  - name: "Epic"
+    description: "A large, multi-issue initiative tracked via sub-issues"
+  - name: "Feature"
+    description: "A request, idea, or new functionality"
+  - name: "Task"
+    description: "A specific, well-scoped piece of work (incl. docs/chore work)"
+  - name: "Spike"
+    description: "A time-boxed investigation that informs follow-on work"
+  - name: "Bug"
+    description: "An unexpected problem or incorrect behavior"
+
+# ---------------------------------------------------------------------------
+# Release milestones (undated for now; phase labels remain the thematic axis).
+#   `from:` renames an existing milestone in place (preserving issue
+#   associations), mirroring the label rename mechanism. ADR-010 re-sequenced
+#   the roadmap around the RV reference deployment.
+# ---------------------------------------------------------------------------
+milestones:
+  - title: "v0.2 — Foundation & DX"
+    description: "Phase 0 hardening: governance, CI, and developer experience."
+  - title: "v0.3 — RV coach node: telemetry & safe control"
+    description: "RV reference deployment (ADR-010): RV-C bridge, Home Assistant integration, actuation policy, multi-node deploy."
+  - title: "v0.4 — Ops Agent & curated apps"
+    from: "v0.3 — Ops Agent & curated apps"
+    description: "Phase 1: sandboxed Ops Agent, aios CLI, curated app registry, zero-trust networking."
+  - title: "v0.5 — RAG layer & unified search"
+    from: "v0.4 — RAG layer & unified search"
+    description: "Phase 2: ChromaDB, ingestion pipeline, connectors, and semantic search."
+  - title: "v1.0 — Atomic backup & polish"
+    description: "Phase 3: atomic backup/restore, AI-verified recovery, RV reference-deployment validation, and UX polish."
+
+# ---------------------------------------------------------------------------
+# Org Project board. Fields already exist (seeded from the org template); the
+# reconciler validates them and ensures the Effort single-select options.
+# ---------------------------------------------------------------------------
+project:
+  owner: "astrocyte-project"
+  number: 11
+  title: "Astrocyte 1.0"
+  fields:
+    - name: "Effort"
+      type: "single_select"
+      options: ["High", "Medium", "Low"]
+    - name: "Start Date"
+      type: "date"
+    - name: "Target Date"
+      type: "date"
+    - name: "Order"
+      type: "number"

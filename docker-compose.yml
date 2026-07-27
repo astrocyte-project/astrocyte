@@ -1,0 +1,32 @@
+# Astrocyte base compose stack (ADR-001: Docker Compose on Debian 12).
+# Only the buildable API service exists today; heavy pull-only services are
+# added in their respective phases (see commented block below).
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: ghcr.io/astrocyte-project/astrocyte:dev
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+# This file is the minimal dev stack. Real deployments live under deploy/:
+#   deploy/coach — the RV coach node (HA, Mosquitto, Postgres, rvc-bridge,
+#                  api; profiles: sim / local-llm / apps) — ADR-010..014
+#   deploy/gpu   — on-demand Ollama on the i9/RTX 5080 (ADR-013)
+#   deploy/vps   — Headscale control plane (ADR-013)
+# Future dev services, introduced in their phases:
+#   chromadb  — vector store (ADR-003, Phase 2)
+#   caddy     — reverse proxy / auto-TLS (ADR-001, #11)

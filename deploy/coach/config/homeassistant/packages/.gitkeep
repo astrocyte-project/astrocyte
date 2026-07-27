@@ -1,0 +1,4 @@
+# HA packages directory. Site-specific configuration (template sensors, helpers,
+# local overrides) is mounted here from the deployment's own inventory repo —
+# see docs/runbooks/coach-node-provisioning.md. Empty in this repo by design:
+# nothing coach-specific belongs in the generic stack.

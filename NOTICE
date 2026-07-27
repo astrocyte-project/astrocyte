@@ -1,0 +1,15 @@
+Astrocyte
+Copyright (c) astrocyte-project
+
+This project is licensed under the GNU Affero General Public License v3.0
+or later (see LICENSE).
+
+This product includes third-party material:
+
+- src/astrocyte/rvc/spec/rvc-spec.yml
+  The community-maintained RV-C DGN decode table, vendored from
+  https://github.com/linuxkidd/rvc-monitor-py (etc/rvc/rvc-spec.yml,
+  commit 0325b1f5ac91528a70e0a877768ba8147a614581).
+  Copyright Wandertech LLC.
+  Licensed under the Apache License, Version 2.0
+  (http://www.apache.org/licenses/LICENSE-2.0).

@@ -1,0 +1,41 @@
+name: Feature
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+type: Feature
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem are you trying to solve? What pain point does this address?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the solution you'd like to see.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative solutions or features you've considered.
+    validations:
+      required: false
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: A concrete example of how this feature would be used.
+    validations:
+      required: false
+  - type: checkboxes
+    id: alignment
+    attributes:
+      label: Checklist
+      options:
+        - label: This feature aligns with Astrocyte's core mission
+        - label: I've considered backward compatibility and UX implications

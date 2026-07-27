@@ -1,0 +1,57 @@
+# Path-based PR labeling for actions/labeler@v5.
+# Applies `component:*` labels automatically based on the files a PR touches.
+# Label names must match .github/project.yml. See docs/project-management.md.
+
+"component:api":
+  - changed-files:
+      - any-glob-to-any-file: "src/astrocyte/api/**"
+
+"component:cli":
+  - changed-files:
+      - any-glob-to-any-file: "src/astrocyte/cli/**"
+
+"component:agent":
+  - changed-files:
+      - any-glob-to-any-file: "src/astrocyte/agents/**"
+
+"component:core":
+  - changed-files:
+      - any-glob-to-any-file: "src/astrocyte/core/**"
+
+"component:mcp":
+  - changed-files:
+      - any-glob-to-any-file: "src/astrocyte/mcp/**"
+
+"component:rvc":
+  - changed-files:
+      - any-glob-to-any-file: "src/astrocyte/rvc/**"
+
+"component:ha":
+  - changed-files:
+      - any-glob-to-any-file: "src/astrocyte/ha/**"
+
+"component:web":
+  - changed-files:
+      - any-glob-to-any-file: "web/**"
+
+"component:docker":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docker/**"
+          - "docker-compose*.yml"
+          - ".dockerignore"
+          - "deploy/**"
+
+"component:ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/*.yml"
+          - "Makefile"
+          - ".pre-commit-config.yaml"
+
+"component:docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "**/*.md"

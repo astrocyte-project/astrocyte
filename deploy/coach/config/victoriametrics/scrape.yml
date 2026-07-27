@@ -1,0 +1,53 @@
+# VictoriaMetrics scrape config (Prometheus-compatible). All targets are
+# loopback on the coach node (host networking, 127.0.0.1). NOTE: VM scans the
+# raw file for env-var refs before YAML parsing, so avoid writing the percent-
+# brace token syntax even in comments — it would try to expand it.
+global:
+  scrape_interval: 30s        # modest — limits SD write amplification
+  scrape_timeout: 10s
+  external_labels:
+    node: coach
+
+scrape_configs:
+  # Home Assistant's built-in Prometheus exporter (`prometheus:` in
+  # configuration.yaml). Carries every recorded entity — including the Victron
+  # battery/solar/tank sensors — as metrics. Bearer-authenticated; the token
+  # file is written from ASTROCYTE_HA_TOKEN at deploy time (git-ignored).
+  - job_name: home-assistant
+    metrics_path: /api/prometheus
+    bearer_token_file: /etc/victoriametrics/ha_token
+    static_configs:
+      - targets: ["127.0.0.1:8123"]
+
+  # Astrocyte API request metrics (prometheus-fastapi-instrumentator).
+  - job_name: astrocyte-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["127.0.0.1:8000"]
+
+  # Per-container CPU / memory / disk / network.
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["127.0.0.1:8081"]
+
+  # Host: CPU, RAM, disk, filesystem, thermals (Pi SoC temp).
+  - job_name: node-exporter
+    static_configs:
+      - targets: ["127.0.0.1:9100"]
+
+  # VictoriaMetrics self-monitoring.
+  - job_name: victoriametrics
+    static_configs:
+      - targets: ["127.0.0.1:8428"]
+
+  # coach-router — coach firewall (OPNsense). Per-VLAN / per-WAN interface counters plus
+  # host health. Scraped over the trusted VLAN address, which is the only one
+  # node_exporter binds; permitted by the HA_HOST -> (self):9100 rule. igb1 is the
+  # metered cellular WAN, so its counters are what the data-usage queries key on.
+  - job_name: coach-router
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["192.0.2.1:9100"]
+        labels:
+          host: coach-router
+          role: firewall

@@ -1,0 +1,53 @@
+# Coach actuation policy (ADR-014). First match wins; anything unmatched is
+# denied. Tiers: control = allowed + rate-limited; guarded = two-phase human
+# approval; deny = refused outright.
+#
+# Generator stays DENY (not guarded) until the RV-C bus and command encodings
+# are validated on the real coach — then flip to guarded per the runbook.
+# The Onan shares the chassis diesel tank and loses prime below ~30%.
+
+default_tier: deny
+approval_ttl_seconds: 600
+
+rules:
+  # --- Hard denials first (first match wins) --------------------------------
+  - tier: deny
+    targets: ["*generator*"]
+  - tier: deny
+    domain: script            # scripts can wrap anything; deny until curated
+  - tier: deny
+    domain: shell_command
+
+  # --- Guarded: EMS/inverter-adjacent and high-energy loads ------------------
+  - tier: guarded
+    domain: water_heater       # incl. Aqua-Hot hot-water (Reporter 2v1a on the bus)
+  - tier: guarded
+    # Surge Guard / Southwire EMS (RV-C NAD 79) + inverter power path. The EMS is
+    # normally monitor-only (read tier, always allowed); any exposed switch is
+    # guarded so a stray write to shore-power transfer needs a human.
+    targets: ["switch.inverter*", "switch.ems*", "switch.surge*", "*surge_guard*"]
+  - tier: guarded
+    # Aqua-Hot hydronic heat (RV-C NAD 150): diesel burner + electric element are
+    # combustion / high-draw. Entity ids are provisional until the RV-C candump +
+    # HA discovery on coach-pi5; default-deny backstops anything that doesn't match.
+    targets: ["switch.aqua_hot*", "switch.aquahot*", "*aqua_hot*"]
+  - tier: guarded
+    domain: climate
+    service: turn_off          # killing HVAC in weather extremes needs a human
+
+  # --- Control: lights, fans, HVAC setpoints (rate-limited) ------------------
+  - tier: control
+    domain: light
+    rate_limit_per_minute: 20
+  - tier: control
+    domain: fan
+    rate_limit_per_minute: 12
+  - tier: control
+    domain: climate
+    service: "set_*"
+    rate_limit_per_minute: 12
+  - tier: control
+    domain: persistent_notification   # the approval-mirror path (ADR-014)
+  - tier: control
+    domain: notify
+    rate_limit_per_minute: 10

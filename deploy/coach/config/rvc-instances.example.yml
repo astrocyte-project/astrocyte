@@ -1,0 +1,85 @@
+# RV-C instance → device map (ADR-012) — EXAMPLE.
+#
+# The vendored spec decodes *what* a frame is (a dimmer, a thermostat); it can't
+# know *which* physical fixture an instance drives. That is per-coach wiring, so
+# the real map lives with the deployment's own inventory, not in this repo:
+# point `RVC_INSTANCE_MAP` at it (see docs/runbooks/coach-node-provisioning.md).
+# This file is the schema reference and the default the stack falls back to.
+#
+# HOW TO BUILD ONE. Instance numbers are recovered by correlating a `candump`
+# against narrated switch presses — see docs/runbooks/rv-can-tap-install.md §9.
+# Read the warning there about ordered narration before trusting a result: a
+# single missed fixture shifts every later name by one position, and the failure
+# is invisible without a per-fixture check.
+#
+# NAMES ARE AREA-RELATIVE. Home Assistant prefixes the device's area into the
+# entity_id it generates, so "Ceiling" in area "Bedroom" becomes
+# `light.bedroom_ceiling`. Spelling the area into the name too would give
+# `light.bedroom_bedroom_ceiling`. Renaming anything here after it has
+# registered needs `astro-rvc-bridge --reset-discovery` followed by
+# `rename_entities.py --apply` — HA freezes an entity_id at first registration.
+
+version: 1
+
+# Single-channel fixtures, keyed on their DC_DIMMER_COMMAND_2 instance (DGN
+# 1FEDB). Some coaches' DC_DIMMER_STATUS_1 is inert and cannot source state
+# (ADR-012), so both state and control ride the command instance.
+lights:
+  living_room_ceiling:
+    name: Ceiling
+    area: Living Room
+    command_instance: 70
+  galley_overhead:
+    name: Overhead
+    area: Galley
+    command_instance: 41
+  porch:
+    name: Porch
+    area: Exterior
+    command_instance: 43
+
+# Colour fixtures: a switch instance plus its R/G/B channel triplet. Observed
+# wiring puts the switch immediately below its three channels (77 → 78/79/80),
+# but confirm it per coach rather than assuming — a fixture's channels are the
+# instances whose levels move when only that fixture is toggled.
+#
+# On/off and brightness address `command_instance`; colour addresses `channels`.
+# Both `command_instance` and exactly three `channels` are required — entries
+# missing either are skipped, so an unmapped fixture can sit here as a
+# placeholder without publishing a half-defined entity.
+rgb_fixtures:
+  living_room_accent:
+    name: Accent
+    area: Living Room
+    command_instance: 77
+    channels: [78, 79, 80]
+  unmapped_example:
+    name: Awaiting an on-bus pass
+    area: Exterior
+    channels: []
+
+# Cooling and heating zones share THERMOSTAT_STATUS_1's instance space (DGN
+# 1FFE2), and THERMOSTAT_AMBIENT_STATUS uses the same numbering — a zone named
+# here names its ambient temperature too.
+ac_zones:
+  0:
+    name: Front AC
+    area: Living Room
+
+# Hydronic/furnace zones. Leave empty unless the coach exposes a per-zone
+# control you can actually operate: zones that only report cannot be told apart
+# from one another, and a guessed name is worse than an instance number.
+heat_zones: {}
+
+# Appliances, keyed by DGN family. WATERHEATER_STATUS (DGN 1FFF7) is the
+# combination diesel/electric water heater on many coaches.
+#
+# NOTE `ac_element_status` is inert on some hardware — it reads "no data" even
+# while the electric element is running, and `operating_modes` is the field that
+# actually tracks the source (0 off / 1 burner / 2 electric). Verify against
+# your own bus before surfacing either one.
+appliances:
+  waterheater:
+    1:
+      name: Water Heater
+      area: Bays

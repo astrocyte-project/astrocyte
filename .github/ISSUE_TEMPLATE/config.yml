@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Project management & triage
+    url: https://github.com/astrocyte-project/astrocyte/blob/main/docs/project-management.md
+    about: How issues, labels, milestones, and the board work before you file.
+  - name: 💬 Discussions
+    url: https://github.com/astrocyte-project/astrocyte/discussions
+    about: Questions, ideas, and open-ended conversation.

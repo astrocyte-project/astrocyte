@@ -1,0 +1,624 @@
+{
+  "uid": "coach-wan",
+  "title": "Coach WAN & Segments",
+  "description": "coach-router (OPNsense) WAN health and per-segment traffic. WAN1 = Starlink (igb0), WAN2 = WiFiRanger (igb1) and is the METERED link. Gateway quality series come from the coach-gw-metrics poller on coach-node; interface counters from node_exporter on 192.0.2.1:9100.",
+  "tags": [
+    "coach",
+    "network",
+    "coach-router"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "id": 1,
+      "title": "Cellular data used \u2014 last 30 days (WAN2)",
+      "description": "The uplink that costs money. Sum of rx+tx on igb1. Counter resets across a coach-router reboot are handled by increase().",
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "increase(node_network_receive_bytes_total{host=\"coach-router\",device=\"igb1\"}[30d]) + increase(node_network_transmit_bytes_total{host=\"coach-router\",device=\"igb1\"}[30d])",
+          "legendFormat": "WAN2 cellular"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#d95926"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "graphMode": "area",
+        "textMode": "value",
+        "colorMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "state-timeline",
+      "id": 2,
+      "title": "WAN gateway state",
+      "description": "dpinger's verdict per gateway. A gateway can read Down while the path works if its probe flow is pinned to a dead NAT binding \u2014 restart dpinger (pluginctl -s dpinger restart) before believing a manual ping over the monitor.",
+      "gridPos": {
+        "h": 6,
+        "w": 18,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "coach_gateway_up{gateway=\"WAN_DHCP\"}",
+          "legendFormat": "WAN1 Starlink"
+        },
+        {
+          "refId": "B",
+          "expr": "coach_gateway_up{gateway=\"WAN2_WIFIRANGER\"}",
+          "legendFormat": "WAN2 WiFiRanger (metered)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 90
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Down",
+                  "color": "#d03b3b",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "Online",
+                  "color": "#0ca30c",
+                  "index": 0
+                }
+              }
+            }
+          ],
+          "noValue": "no data yet \u2014 poller not running"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "alignValue": "left",
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 3,
+      "title": "WAN latency",
+      "description": "dpinger round-trip to each gateway's monitor target. Cellular sits materially higher than Starlink \u2014 a WAN2 line near Starlink's is a sign the hotspot path changed.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "coach_gateway_delay_ms{gateway=\"WAN_DHCP\"}",
+          "legendFormat": "WAN1 Starlink"
+        },
+        {
+          "refId": "B",
+          "expr": "coach_gateway_delay_ms{gateway=\"WAN2_WIFIRANGER\"}",
+          "legendFormat": "WAN2 WiFiRanger (metered)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "noValue": "no data yet \u2014 poller not running"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "WAN1 Starlink"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "WAN2 WiFiRanger (metered)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 4,
+      "title": "WAN packet loss",
+      "description": "dpinger loss ratio per gateway (0-1, rendered as %). Sustained 100% on a gateway whose path you can ping by hand is the stale-NAT-binding signature, not a dead link -- restart dpinger before believing it.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "coach_gateway_loss_ratio{gateway=\"WAN_DHCP\"}",
+          "legendFormat": "WAN1 Starlink"
+        },
+        {
+          "refId": "B",
+          "expr": "coach_gateway_loss_ratio{gateway=\"WAN2_WIFIRANGER\"}",
+          "legendFormat": "WAN2 WiFiRanger (metered)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "noValue": "no data yet \u2014 poller not running"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "WAN1 Starlink"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "WAN2 WiFiRanger (metered)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 5,
+      "title": "WAN throughput",
+      "description": "Bits/sec on each WAN interface. Traffic appearing on WAN2 means failover has happened \u2014 or that something is egressing over the metered link when it shouldn't.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(node_network_receive_bytes_total{host=\"coach-router\",device=\"igb0\"}[5m]) * 8",
+          "legendFormat": "WAN1 Starlink \u2014 down"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(node_network_transmit_bytes_total{host=\"coach-router\",device=\"igb0\"}[5m]) * 8",
+          "legendFormat": "WAN1 Starlink \u2014 up"
+        },
+        {
+          "refId": "C",
+          "expr": "rate(node_network_receive_bytes_total{host=\"coach-router\",device=\"igb1\"}[5m]) * 8",
+          "legendFormat": "WAN2 WiFiRanger \u2014 down"
+        },
+        {
+          "refId": "D",
+          "expr": "rate(node_network_transmit_bytes_total{host=\"coach-router\",device=\"igb1\"}[5m]) * 8",
+          "legendFormat": "WAN2 WiFiRanger \u2014 up"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "WAN1 Starlink \u2014 down"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "WAN1 Starlink \u2014 up"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    4
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "WAN2 WiFiRanger \u2014 down"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "WAN2 WiFiRanger \u2014 up"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    4
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 6,
+      "title": "Per-segment throughput (inbound)",
+      "description": "Traffic per VLAN gateway interface on coach-router. coach-systems carries the Cerbo and the Firefly RV-C gateway; guest and iot-media are internet-only by firewall rule.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(node_network_receive_bytes_total{host=\"coach-router\",device=\"vlan01\"}[5m]) * 8",
+          "legendFormat": "coach-systems (VLAN10)"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(node_network_receive_bytes_total{host=\"coach-router\",device=\"vlan02\"}[5m]) * 8",
+          "legendFormat": "trusted (VLAN20)"
+        },
+        {
+          "refId": "C",
+          "expr": "rate(node_network_receive_bytes_total{host=\"coach-router\",device=\"vlan03\"}[5m]) * 8",
+          "legendFormat": "iot-media (VLAN30)"
+        },
+        {
+          "refId": "D",
+          "expr": "rate(node_network_receive_bytes_total{host=\"coach-router\",device=\"vlan04\"}[5m]) * 8",
+          "legendFormat": "guest (VLAN40)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "coach-systems (VLAN10)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trusted (VLAN20)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "iot-media (VLAN30)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "guest (VLAN40)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 7,
+      "title": "Interface errors & drops",
+      "description": "Flat zero is the expected state. Anything sustained here points at cabling or a duplex mismatch before it shows up as user-visible slowness.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (device) (rate(node_network_receive_errs_total{host=\"coach-router\"}[5m]) + rate(node_network_transmit_errs_total{host=\"coach-router\"}[5m]))",
+          "legendFormat": "{{device}} \u2014 errors"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (device) (rate(node_network_receive_drop_total{host=\"coach-router\"}[5m]) + rate(node_network_transmit_drop_total{host=\"coach-router\"}[5m]))",
+          "legendFormat": "{{device}} \u2014 drops"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pps",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "pointSize": 8
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}

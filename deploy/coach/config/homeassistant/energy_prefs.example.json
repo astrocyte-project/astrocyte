@@ -1,0 +1,18 @@
+{
+  "energy_sources": [
+    {
+      "type": "grid",
+      "stat_energy_from": "sensor.shore_energy_import",
+      "cost_adjustment_day": 0.0
+    },
+    {
+      "type": "solar",
+      "stat_energy_from": "sensor.REPLACE_ME_mppt_total_yield"
+    },
+    {
+      "type": "battery",
+      "stat_energy_to": "sensor.REPLACE_ME_shunt_charged_energy",
+      "stat_energy_from": "sensor.REPLACE_ME_shunt_discharged_energy"
+    }
+  ]
+}

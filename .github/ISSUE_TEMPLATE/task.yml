@@ -1,0 +1,29 @@
+name: Task
+description: A specific, well-scoped piece of work (incl. docs/chore work)
+title: "[Task]: "
+type: Task
+labels: []
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What needs to be done
+      description: Describe the scoped unit of work.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How do we know this is complete?
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: input
+    id: parent
+    attributes:
+      label: Parent Epic (optional)
+      description: If this is part of a larger initiative, link the Epic (e.g. #2).
+    validations:
+      required: false

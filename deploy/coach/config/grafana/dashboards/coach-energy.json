@@ -1,0 +1,130 @@
+{
+  "uid": "coach-energy",
+  "title": "Coach Energy",
+  "tags": ["astrocyte", "coach", "energy", "victron"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "type": "row", "title": "Battery", "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "id": 1
+    },
+    {
+      "type": "gauge", "title": "Battery SOC", "id": 2,
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 7, "w": 6, "x": 0, "y": 1 },
+      "targets": [ { "refId": "A", "expr": "hass_sensor_battery_percent{entity=\"sensor.venus_dc_battery_charge\"}" } ],
+      "fieldConfig": { "defaults": {
+        "unit": "percent", "min": 0, "max": 100,
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "red", "value": null }, { "color": "orange", "value": 30 },
+          { "color": "yellow", "value": 50 }, { "color": "green", "value": 70 } ] }
+      }, "overrides": [] },
+      "options": { "showThresholdLabels": false, "showThresholdMarkers": true }
+    },
+    {
+      "type": "stat", "title": "Battery Power (+chg / −dis)", "id": 3,
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 7, "w": 6, "x": 6, "y": 1 },
+      "targets": [ { "refId": "A", "expr": "hass_sensor_power_w{entity=\"sensor.venus_dc_battery_power\"}" } ],
+      "fieldConfig": { "defaults": {
+        "unit": "watt", "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "red", "value": null }, { "color": "green", "value": 0 } ] }
+      }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "timeseries", "title": "Battery SOC (%)", "id": 4,
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 1 },
+      "targets": [ { "refId": "A", "expr": "hass_sensor_battery_percent{entity=\"sensor.venus_dc_battery_charge\"}", "legendFormat": "SOC" } ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "timeseries", "title": "Battery Power (W)", "id": 5,
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 8 },
+      "targets": [ { "refId": "A", "expr": "hass_sensor_power_w{entity=\"sensor.venus_dc_battery_power\"}", "legendFormat": "battery" } ],
+      "fieldConfig": { "defaults": { "unit": "watt", "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "gradientMode": "scheme" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 0 } ] } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "timeseries", "title": "Battery Voltage (V)", "id": 6,
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 8 },
+      "targets": [ { "refId": "A", "expr": "hass_sensor_voltage_v{entity=\"sensor.venus_dc_battery_voltage\"}", "legendFormat": "V" } ],
+      "fieldConfig": { "defaults": { "unit": "volt", "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "type": "row", "title": "Solar · Shore · Loads", "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 }, "id": 7
+    },
+    {
+      "type": "timeseries", "title": "Solar (PV) Power", "id": 8,
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 16 },
+      "targets": [ { "refId": "A", "expr": "hass_sensor_power_w{entity=\"sensor.venus_pv_power\"}", "legendFormat": "PV" } ],
+      "fieldConfig": { "defaults": { "unit": "watt", "custom": { "drawStyle": "line", "fillOpacity": 25, "lineWidth": 2, "gradientMode": "opacity" }, "color": { "mode": "fixed", "fixedColor": "yellow" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "type": "timeseries", "title": "Shore / Grid Power", "id": 9,
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 16 },
+      "targets": [
+        { "refId": "A", "expr": "hass_sensor_power_w{entity=\"sensor.venus_grid_power_l1\"}", "legendFormat": "L1" },
+        { "refId": "B", "expr": "hass_sensor_power_w{entity=\"sensor.venus_grid_power_l2\"}", "legendFormat": "L2" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "watt", "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "timeseries", "title": "AC Consumption", "id": 10,
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 16 },
+      "targets": [
+        { "refId": "A", "expr": "hass_sensor_power_w{entity=\"sensor.venus_consumption_power_l1\"}", "legendFormat": "L1" },
+        { "refId": "B", "expr": "hass_sensor_power_w{entity=\"sensor.venus_consumption_power_l2\"}", "legendFormat": "L2" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "watt", "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "row", "title": "Tanks", "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 }, "id": 11
+    },
+    {
+      "type": "timeseries", "title": "Tank Levels (%)", "id": 12,
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 24 },
+      "targets": [
+        { "refId": "A", "expr": "hass_sensor_unit_percent{entity=\"sensor.tank_sensor_id_1_level\"}", "legendFormat": "Fresh" },
+        { "refId": "B", "expr": "hass_sensor_unit_percent{entity=\"sensor.tank_sensor_id_2_level\"}", "legendFormat": "Black" },
+        { "refId": "C", "expr": "hass_sensor_unit_percent{entity=\"sensor.tank_sensor_level\"}", "legendFormat": "Grey" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull"] }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "bargauge", "title": "Tanks now", "id": 13,
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
+      "targets": [
+        { "refId": "A", "expr": "hass_sensor_unit_percent{entity=\"sensor.tank_sensor_id_1_level\"}", "legendFormat": "Fresh" },
+        { "refId": "B", "expr": "hass_sensor_unit_percent{entity=\"sensor.tank_sensor_id_2_level\"}", "legendFormat": "Black" },
+        { "refId": "C", "expr": "hass_sensor_unit_percent{entity=\"sensor.tank_sensor_level\"}", "legendFormat": "Grey" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 } ] } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    }
+  ]
+}

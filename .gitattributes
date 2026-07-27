@@ -1,0 +1,14 @@
+# Normalize line endings to LF for text files.
+* text=auto eol=lf
+
+# Generated / lock files: collapse in diffs and exclude from language stats.
+uv.lock linguist-generated=true
+web/package-lock.json linguist-generated=true
+
+# Binary files (no EOL conversion).
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary

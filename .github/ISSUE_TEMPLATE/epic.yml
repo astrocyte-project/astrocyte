@@ -1,0 +1,36 @@
+name: Epic
+description: A large, multi-issue initiative tracked via sub-issues
+title: "[Epic]: "
+type: Epic
+labels: ["epic"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is this initiative and why does it matter?
+    validations:
+      required: true
+  - type: textarea
+    id: outcomes
+    attributes:
+      label: Goals & exit criteria
+      description: What must be true for this Epic to be considered done?
+    validations:
+      required: true
+  - type: textarea
+    id: children
+    attributes:
+      label: Child issues
+      description: Link the sub-issues that make up this Epic (add them as sub-issues once created).
+      value: |
+        - [ ] #
+    validations:
+      required: false
+  - type: input
+    id: milestone
+    attributes:
+      label: Target milestone
+      description: Which release does this land in (e.g. v0.3)? Leave blank if unscheduled.
+    validations:
+      required: false

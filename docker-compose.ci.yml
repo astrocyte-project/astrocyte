@@ -1,0 +1,14 @@
+# CI override: used with the base file to build only the buildable services in
+# CI, without pulling the heavy runtime services (Ollama, ChromaDB, ...) that
+# later phases add as pull-only images.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.ci.yml build
+#
+# As pull-only services are added to docker-compose.yml, give them a
+# `profiles: ["runtime"]` there so a plain `build` skips them; this file keeps
+# the API image tag stable for CI.
+
+services:
+  api:
+    image: ghcr.io/astrocyte-project/astrocyte:ci
+    restart: "no"

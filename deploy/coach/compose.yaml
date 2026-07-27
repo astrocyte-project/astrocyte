@@ -1,0 +1,312 @@
+# Coach node stack (ADR-010/ADR-013) — the always-on Pi 5 in the reference coach.
+#
+# Services that must see host resources run with host networking: Home
+# Assistant (its own requirement + mDNS), the rvc-bridge (SocketCAN lives in
+# the host network namespace), and the API (binds the tailnet IP only,
+# ADR-014). Mosquitto/Postgres stay on the compose network with 127.0.0.1-
+# published ports so host-networked services reach them on localhost.
+#
+# Profiles:
+#   (default)   ha + mosquitto + postgres + rvc-bridge + api
+#   local-llm   small Ollama on the Pi — optional; 8 GB is tight (ADR-013)
+#   apps        NextCloud on the shared Postgres (first "common app";
+#               migrates to the curated-app registry when #10 lands)
+#   sim         fixture replayer over a udp_multicast python-can bus — no CAN
+#               hardware needed (CI e2e / bench testing)
+#   observability  VictoriaMetrics + cAdvisor + node-exporter + Grafana (#33).
+#               All bind 127.0.0.1 only — nothing new on the coach LAN
+#               (ADR-014); reach Grafana via SSH tunnel until the tailnet lands.
+#   portal      Homepage — the node's front-door link aggregator (127.0.0.1).
+#
+# Bind mounts carry :z for SELinux hosts (harmless on Pi OS/Debian).
+# See docs/runbooks/coach-node-provisioning.md for bring-up.
+
+name: astrocyte-coach
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1883:1883"
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:z
+      - mosquitto_data:/mosquitto/data
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-W", "3"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-astrocyte}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-homeassistant}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  homeassistant:
+    # Pin the tag: victron_gx needs >= 2026.5; e2e fixtures assume this tag.
+    image: ghcr.io/home-assistant/home-assistant:2026.6
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - mosquitto
+      - postgres
+    environment:
+      TZ: ${TZ:-America/New_York}
+      ASTROCYTE_RECORDER_DB_URL: >-
+        postgresql://${POSTGRES_USER:-astrocyte}:${POSTGRES_PASSWORD:?set in
+        .env}@127.0.0.1:5432/${POSTGRES_DB:-homeassistant}
+    volumes:
+      - ha_config:/config
+      - ./config/homeassistant/configuration.yaml:/config/configuration.yaml:z
+      # configuration.yaml `!include`s automations.yaml — it must be mounted too.
+      - ${HA_AUTOMATIONS:-./config/homeassistant/automations.example.yaml}:/config/automations.yaml:z
+      # Curated YAML dashboard registered under `lovelace:` in configuration.yaml.
+      - ${HA_DASHBOARD:-./config/homeassistant/coach-overview.example.yaml}:/config/coach-overview.yaml:z
+      # Site-specific config (template sensors, local overrides) as an HA
+      # package. Empty by default; the coach points this at its own copy.
+      - ${HA_PACKAGES:-./config/homeassistant/packages}:/config/packages:z
+
+  rvc-bridge:
+    image: ${ASTROCYTE_IMAGE:-ghcr.io/astrocyte-project/astrocyte:dev}
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    command: astro-rvc-bridge
+    network_mode: host  # SocketCAN lives in the host network namespace
+    depends_on:
+      - mosquitto
+    environment:
+      ASTROCYTE_RVC_CAN_CHANNEL: ${ASTROCYTE_RVC_CAN_CHANNEL:-can0}
+      ASTROCYTE_RVC_CAN_INTERFACE: ${ASTROCYTE_RVC_CAN_INTERFACE:-socketcan}
+      ASTROCYTE_RVC_MQTT_URL: mqtt://127.0.0.1:1883
+      ASTROCYTE_RVC_MQTT_USERNAME: ${MQTT_USERNAME:-}
+      ASTROCYTE_RVC_MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+      ASTROCYTE_RVC_COACH_ID: ${COACH_ID:-refcoach}
+      # Coach instance→device map: builds named, area-placed HA lights from
+      # their DC_DIMMER_COMMAND_2 instance (issue #122). Unset to disable.
+      ASTROCYTE_RVC_INSTANCE_MAP: /app/config/rvc-instances.yml
+      # Safety default. Flip to "false" only after on-vehicle validation
+      # (ADR-012/ADR-014 and docs/runbooks/rv-can-tap-install.md).
+      ASTROCYTE_RVC_LISTEN_ONLY: ${ASTROCYTE_RVC_LISTEN_ONLY:-true}
+    volumes:
+      - ${RVC_INSTANCE_MAP:-./config/rvc-instances.example.yml}:/app/config/rvc-instances.yml:z
+
+  api:
+    image: ${ASTROCYTE_IMAGE:-ghcr.io/astrocyte-project/astrocyte:dev}
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - homeassistant
+    # Bind the tailnet interface only — never the coach LAN (ADR-014).
+    command: >
+      uvicorn astrocyte.api.app:create_app --factory
+      --host ${ASTROCYTE_API_HOST:-127.0.0.1} --port 8000
+    environment:
+      ASTROCYTE_API_TOKEN: ${ASTROCYTE_API_TOKEN:?set in .env}
+      ASTROCYTE_HA_URL: http://127.0.0.1:8123
+      ASTROCYTE_HA_TOKEN: ${ASTROCYTE_HA_TOKEN:?set in .env}
+      ASTROCYTE_MQTT_URL: mqtt://127.0.0.1:1883
+      ASTROCYTE_POLICY_FILE: /app/config/policy.yml
+      ASTROCYTE_MODELS_FILE: /app/config/models.yml
+      ASTROCYTE_APPROVALS_DB: /app/state/approvals.db
+      ASTROCYTE_AUDIT_LOG: /app/state/audit.jsonl
+    volumes:
+      - ./config/policy.yml:/app/config/policy.yml:z
+      - ./config/models.yml:/app/config/models.yml:z
+      - api_state:/app/state
+
+  ollama:
+    profiles: ["local-llm"]
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+
+  nextcloud:
+    profiles: ["apps"]
+    image: nextcloud:31-apache
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    ports:
+      # 8080 is UniFi's inform port and cadvisor (host network) holds 8081.
+      - "${NEXTCLOUD_BIND:-127.0.0.1}:8082:80"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-astrocyte}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: nextcloud
+      NEXTCLOUD_TRUSTED_DOMAINS: ${NEXTCLOUD_TRUSTED_DOMAINS:-localhost}
+    volumes:
+      - nextcloud_data:/var/www/html
+
+  replayer:
+    profiles: ["sim"]
+    image: ${ASTROCYTE_IMAGE:-ghcr.io/astrocyte-project/astrocyte:dev}
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile
+    network_mode: host  # multicast loopback pairs it with the bridge
+    depends_on:
+      - rvc-bridge
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - >
+        while true; do
+        can_player -i ${ASTROCYTE_RVC_CAN_INTERFACE:-udp_multicast}
+        -c ${ASTROCYTE_RVC_CAN_CHANNEL:-239.74.163.2}
+        /fixtures/coach-synthetic.log;
+        sleep 3; done
+    volumes:
+      - ../../tests/fixtures/rvc:/fixtures:z
+
+  # --- Observability (ADR-006 / #33) ----------------------------------------
+  # VictoriaMetrics is the TSDB revisit ADR-012 deferred (#94): lighter than
+  # Prometheus on an 8 GB Pi, Prom-compatible, long retention. It scrapes
+  # itself + HA's /api/prometheus exporter + the API's /metrics + cAdvisor +
+  # node-exporter. Everything here binds 127.0.0.1 (host network) so nothing is
+  # exposed on the coach LAN; reach Grafana via `ssh -L 3000:127.0.0.1:3000`.
+  victoriametrics:
+    profiles: ["observability"]
+    image: victoriametrics/victoria-metrics:v1.111.0
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - -httpListenAddr=127.0.0.1:8428
+      - -storageDataPath=/vmdata
+      # Hot window only. vmagent now does the scraping and ships history to
+      # gpu-node's long-term store; keeping 24 months here wore the eMMC for nothing.
+      - -retentionPeriod=1     # months
+    volumes:
+      - vm_data:/vmdata
+      - ./config/victoriametrics/scrape.yml:/etc/victoriametrics/scrape.yml:z
+      # Bearer token for HA's exporter — written from ASTROCYTE_HA_TOKEN at
+      # deploy time (see the runbook); git-ignored, never committed.
+      - ./config/victoriametrics/ha_token:/etc/victoriametrics/ha_token:ro
+
+  # vmagent — scrapes every target and fans the samples out to BOTH the local
+  # store and gpu-node's long-term store. Two -remoteWrite.url flags means two
+  # INDEPENDENT queues: if gpu-node is off (it is the sheddable load when
+  # boondocking) only gpu-node's queue backs up, and local monitoring is unaffected.
+  # The queue is capped because it lives on coach-node's eMMC — the card this whole
+  # arrangement exists to spare. At ~6 MB/day, 512 MB is ~85 days of outage
+  # tolerance, after which it drops oldest-first rather than filling the card.
+  vmagent:
+    profiles: ["observability"]
+    image: victoriametrics/vmagent:v1.111.0
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - -promscrape.config=/etc/victoriametrics/scrape.yml
+      - -promscrape.configCheckInterval=60s
+      - -remoteWrite.url=http://127.0.0.1:8428/api/v1/write
+      - -remoteWrite.url=http://192.0.2.21:8428/api/v1/write
+      - -remoteWrite.tmpDataPath=/vmagent-data
+      - -remoteWrite.maxDiskUsagePerURL=512MB
+      - -httpListenAddr=127.0.0.1:8429
+    volumes:
+      - vmagent_data:/vmagent-data
+      - ./config/victoriametrics/scrape.yml:/etc/victoriametrics/scrape.yml:z
+      - ./config/victoriametrics/ha_token:/etc/victoriametrics/ha_token:ro
+
+  cadvisor:
+    profiles: ["observability"]
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    restart: unless-stopped
+    network_mode: host
+    command: ["-listen_ip=127.0.0.1", "-port=8081"]
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+
+  node-exporter:
+    profiles: ["observability"]
+    image: prom/node-exporter:v1.8.2
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    command:
+      - --web.listen-address=127.0.0.1:9100
+      - --path.rootfs=/host
+    volumes:
+      - /:/host:ro,rslave
+
+  grafana:
+    profiles: ["observability"]
+    image: grafana/grafana:11.6.1
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - victoriametrics
+    environment:
+      GF_SERVER_HTTP_ADDR: 127.0.0.1
+      GF_SERVER_HTTP_PORT: "3000"
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      # Soft default (not :?): compose interpolates ALL services regardless of
+      # the active profile, so a hard guard here would break `--profile sim`
+      # (and the CI e2e). Set GRAFANA_PASSWORD in .env for a real deployment.
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:z
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards:z
+
+  # --- Portal (node front door) ---------------------------------------------
+  # Homepage: declarative YAML link aggregator with live HA/Grafana/Docker
+  # widgets. Binds 127.0.0.1:3001; the Docker widget reads the socket read-only.
+  homepage:
+    profiles: ["portal"]
+    image: ghcr.io/gethomepage/homepage:v1.6.0
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: "*"   # loopback-only bind; CSRF host check moot
+      PORT: "3001"
+      HOSTNAME: 127.0.0.1
+      # Secrets for live widgets — injected, never committed to the YAML config.
+      HOMEPAGE_VAR_HA_TOKEN: ${ASTROCYTE_HA_TOKEN:?set in .env}
+      HOMEPAGE_VAR_GRAFANA_USER: ${GRAFANA_USER:-admin}
+      HOMEPAGE_VAR_GRAFANA_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - ./config/homepage:/app/config:z
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+volumes:
+  mosquitto_data:
+  postgres_data:
+  ha_config:
+  api_state:
+  ollama_models:
+  nextcloud_data:
+  vm_data:
+  vmagent_data:
+  grafana_data:

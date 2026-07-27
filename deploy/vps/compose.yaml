@@ -1,0 +1,23 @@
+# VPS node (ADR-013): the Headscale control plane — the neutral coordination
+# point between the coach and everything else (Starlink/cellular are CGNAT'd,
+# so neither coach nor home can accept inbound connections).
+#
+# Config: put headscale's config.yaml in ./config (the vps-headscale runbook
+# includes a starter with the embedded DERP server enabled for relaying).
+
+name: astrocyte-vps
+
+services:
+  headscale:
+    image: headscale/headscale:0.26
+    restart: unless-stopped
+    command: serve
+    ports:
+      - "8080:8080"      # headscale API/registration (front with TLS/Caddy)
+      - "3478:3478/udp"  # embedded DERP/STUN relay
+    volumes:
+      - ./config:/etc/headscale:z
+      - headscale_data:/var/lib/headscale
+
+volumes:
+  headscale_data:

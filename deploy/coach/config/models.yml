@@ -1,0 +1,21 @@
+# Model routing (ADR-013). Priority: lower wins; the router walks providers
+# in order and uses the first one whose health probe passes.
+#
+# "gpu" is the i9/RTX 5080 workstation over the tailnet — replace the
+# endpoint with its MagicDNS name / tailnet IP (gpu-node runbook).
+# "coach" only resolves when the local-llm compose profile is up.
+
+probe_ttl_seconds: 15
+
+providers:
+  - name: gpu
+    endpoint: http://gpu-node:11434
+    model: qwen3:32b
+    priority: 10
+    capabilities: [chat, heavy]
+
+  - name: coach
+    endpoint: http://127.0.0.1:11434
+    model: llama3.2:3b
+    priority: 50
+    capabilities: [chat]

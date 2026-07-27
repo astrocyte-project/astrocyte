@@ -1,0 +1,5 @@
+# Code owners are auto-requested for review on PRs touching matching paths.
+# Pairs with the branch-protection "require code owner review" rule.
+# Expand this list as the core team grows.
+
+* @astrocyte-project/maintainers

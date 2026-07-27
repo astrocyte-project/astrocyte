@@ -1,0 +1,94 @@
+# Coach-stack e2e: the `sim` compose profile with a real Home Assistant
+# container. Heavy (multi-GB image pulls), so it runs nightly / on demand —
+# never on the PR path.
+#
+# Asserts today: every service healthy; the bridge's retained discovery +
+# state topics appear on the broker; the API answers /health and mounts
+# /mcp/ha; and — closing the chain (#88) — those discovery payloads actually
+# materialize into live entities *inside* HA. The last check onboards HA and
+# adds the MQTT integration at runtime via its REST APIs (see
+# e2e/assert_ha_entities.py) rather than committing a version-brittle
+# .storage auth fixture.
+
+name: E2E (coach sim)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 8 * * *" # nightly
+
+permissions:
+  contents: read
+
+jobs:
+  coach-sim:
+    name: Coach stack (sim profile)
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: e2e-only-password
+      ASTROCYTE_API_TOKEN: e2e-only-token
+      ASTROCYTE_HA_TOKEN: e2e-dummy-ha-token
+      ASTROCYTE_API_HOST: 127.0.0.1
+      # No CAN hardware: bridge + replayer meet on a udp_multicast bus.
+      ASTROCYTE_RVC_CAN_INTERFACE: udp_multicast
+      ASTROCYTE_RVC_CAN_CHANNEL: 239.74.163.2
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Start the coach stack (sim profile)
+        working-directory: deploy/coach
+        run: docker compose --profile sim up -d --build --quiet-pull
+
+      - name: Wait for Mosquitto + Postgres health
+        working-directory: deploy/coach
+        run: |
+          for i in $(seq 1 30); do
+            unhealthy=$(docker compose ps --format '{{.Name}} {{.Health}}' \
+              | grep -c unhealthy || true)
+            starting=$(docker compose ps --format '{{.Name}} {{.Health}}' \
+              | grep -c starting || true)
+            [ "$unhealthy" = 0 ] && [ "$starting" = 0 ] && exit 0
+            sleep 5
+          done
+          docker compose ps
+          exit 1
+
+      - name: Assert retained bridge topics on the broker
+        working-directory: deploy/coach
+        run: |
+          sleep 15  # let the replayer complete a pass
+          topics=$(docker compose exec -T mosquitto \
+            mosquitto_sub -t 'rvc/#' -t 'homeassistant/#' -v -W 5 || true)
+          echo "$topics"
+          echo "$topics" | grep -q 'rvc/bridge/status online'
+          echo "$topics" | grep -q 'rvc/state/tank_status/0'
+          echo "$topics" | grep -q 'homeassistant/device/rvc_refcoach_tank_status_0/config'
+
+      - name: Assert HA is serving
+        run: curl -fsS -o /dev/null --retry 20 --retry-delay 5 --retry-all-errors http://127.0.0.1:8123/
+
+      - name: Assert RV-C entities materialize inside HA
+        # Onboards HA, adds the MQTT integration against the sim broker, then
+        # polls /api/states for the tank device the broker step already checks.
+        run: python3 deploy/coach/e2e/assert_ha_entities.py
+
+      - name: Assert API health + MCP mount
+        run: |
+          curl -fsS http://127.0.0.1:8000/health
+          # /mcp/ha requires the bearer token (ADR-014): 401 without...
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/mcp/ha/)
+          test "$code" = "401"
+          # ...and not-404 with it (streamable HTTP rejects bare GETs politely).
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H 'Authorization: Bearer e2e-only-token' http://127.0.0.1:8000/mcp/ha/)
+          test "$code" != "404"
+
+      - name: Logs on failure
+        if: failure()
+        working-directory: deploy/coach
+        run: docker compose logs --tail 100
+
+      - name: Tear down
+        if: always()
+        working-directory: deploy/coach
+        run: docker compose --profile sim down -v

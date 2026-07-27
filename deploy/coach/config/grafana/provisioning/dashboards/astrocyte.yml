@@ -1,0 +1,13 @@
+# Auto-load dashboards from disk (provisioned; not hand-created in the UI).
+apiVersion: 1
+providers:
+  - name: astrocyte
+    orgId: 1
+    folder: Astrocyte
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

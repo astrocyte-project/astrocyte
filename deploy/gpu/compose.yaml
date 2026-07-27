@@ -1,0 +1,30 @@
+# GPU node (ADR-013): the i9/RTX 5080 workstation that travels in the coach.
+# On-demand — powered up when in use; the coach's ModelRouter health-probes it
+# and falls back gracefully when it's off.
+#
+# Host prerequisites (docs/runbooks/gpu-node-setup.md): NVIDIA open kernel
+# driver >= 570 / CUDA 12.8+ (Blackwell), nvidia-container-toolkit, tailscaled.
+
+name: astrocyte-gpu
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      # Reached over the tailnet; keep the host firewall closed on the LAN.
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: 30m
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  ollama_models:

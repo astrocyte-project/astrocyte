@@ -1,0 +1,41 @@
+name: Project sync
+
+# Reconciles labels, milestones, org issue types, and the org Project board
+# from .github/project.yml (see scripts/project-sync.sh).
+#
+# Requires the PROJECT_ADMIN_TOKEN secret (a maintainer PAT with repo + project
+# + org write) because org issue types and org Projects are org-level objects
+# the default GITHUB_TOKEN cannot write. Without the secret the script exits 0
+# with a warning, so this workflow is safe to keep enabled before it is added.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/project.yml"
+      - "scripts/project-sync.sh"
+      - ".github/workflows/project-sync.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: project-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Reconcile PM objects
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - name: Run project-sync
+        env:
+          PROJECT_ADMIN_TOKEN: ${{ secrets.PROJECT_ADMIN_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bash scripts/project-sync.sh

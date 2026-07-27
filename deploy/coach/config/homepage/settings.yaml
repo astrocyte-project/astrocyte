@@ -1,0 +1,16 @@
+title: Luna — Coach Node
+theme: dark
+color: slate
+headerStyle: clean
+disableUpdateCheck: true
+hideVersion: true
+layout:
+  Coach Core:
+    style: row
+    columns: 2
+  Observability:
+    style: row
+    columns: 2
+  Apps:
+    style: row
+    columns: 2

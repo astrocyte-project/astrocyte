@@ -1,0 +1,94 @@
+# Curated coach dashboard — EXAMPLE.
+#
+# A real dashboard addresses a particular coach's entity ids, so it lives with
+# that deployment's inventory and is mounted via `HA_DASHBOARD`. This file shows
+# the structure and is what the stack falls back to.
+#
+# ENTITY IDS. HA derives them from the instance map's area + name, so they
+# reproduce on any deployment built from the same map — `light.<area>_<fixture>`
+# for mapped fixtures, `sensor.<area>_<device>_<field>` for named devices, and
+# `sensor.rv_c_<dgn>_<instance>_<field>` for anything the map does not name.
+# After renaming in the map, run `astro-rvc-bridge --reset-discovery` then
+# `rename_entities.py --apply`, or HA keeps the ids it first assigned.
+title: Coach
+views:
+  - title: Home
+    path: home
+    icon: mdi:rv-truck
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Power
+            heading_style: title
+          - type: tile
+            entity: sensor.venus_dc_battery_charge
+            name: House battery
+            icon: mdi:battery-high
+          - type: tile
+            entity: sensor.venus_pv_power
+            name: Solar
+            icon: mdi:solar-power
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Comfort
+            heading_style: title
+          # Ambient temperature comes from THERMOSTAT_AMBIENT_STATUS, which
+          # shares the thermostat zone names from the instance map.
+          - type: tile
+            entity: sensor.living_room_front_ac_ambient_temp
+            name: Front
+            icon: mdi:thermometer
+
+  - title: Lights
+    path: lights
+    icon: mdi:lightbulb-group
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Living room
+            heading_style: title
+          - type: tile
+            entity: light.living_room_ceiling
+            features:
+              - type: light-brightness
+          # Colour fixtures are one entity spanning a switch plus three
+          # channels; HA drives them through the JSON light schema.
+          - type: tile
+            entity: light.living_room_accent
+            features:
+              - type: light-brightness
+              - type: light-color-temp
+          - type: markdown
+            content: >
+              A fixture reads **unknown** until the bridge observes a command
+              for it — some coaches broadcast no light *state*, only the
+              command a wall switch sends, so HA learns a level the first time
+              the fixture is switched after the bridge starts.
+
+
+              Control is inert while the bridge is listen-only (ADR-014).
+
+  - title: System
+    path: system
+    icon: mdi:raspberry-pi
+    cards:
+      - type: markdown
+        content: >
+          ### Coach node
+
+          The RV-C bridge is **listen-only** by default (ADR-014): it decodes
+          the bus and publishes telemetry, and refuses to transmit.
+
+
+          After renaming a fixture or zone in the instance map, clear the old
+          entities before restarting the bridge, then move the ids:
+          `astro-rvc-bridge --reset-discovery` followed by
+          `rename_entities.py --apply`.

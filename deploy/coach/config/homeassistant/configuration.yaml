@@ -1,0 +1,68 @@
+# Coach Home Assistant configuration (ADR-011/ADR-012).
+#
+# Interactive-only setup (config flows, done once in the UI — see the coach
+# provisioning runbook):
+#   - MQTT integration        -> 127.0.0.1:1883 (bridge discovery arrives then)
+#   - Victron GX integration  -> the Cerbo GX's address (HA 2026.5+)
+#   - Companion app users     -> notifications over the tailnet
+
+homeassistant:
+  # HA keeps its OWN timezone in .storage, independent of the host, so a stale
+  # value silently runs time-based automations at the wrong hour. Pin it from
+  # the stack's TZ so there is one source of truth (compose sets it from .env).
+  time_zone: !env_var TZ America/New_York
+  # Site-specific configuration — template sensors built on a particular
+  # coach's entity ids, helpers, local overrides — is mounted here from the
+  # deployment's own inventory repo. Empty in this repo by design.
+  packages: !include_dir_named packages
+
+default_config:
+
+http:
+  # HA runs with host networking; the tailnet + localhost are the only
+  # intended clients. Keep the coach LAN out per ADR-014's interim posture.
+  server_host: 0.0.0.0
+
+recorder:
+  # Shared coach Postgres, not SQLite-on-SD (ADR-012). The URL is injected by
+  # compose from the .env Postgres credentials.
+  db_url: !env_var ASTROCYTE_RECORDER_DB_URL
+  # SD-endurance tuning: batch commits, purge raw states after 30 days
+  # (long-term statistics are kept forever regardless).
+  commit_interval: 30
+  purge_keep_days: 30
+  auto_purge: true
+
+# Prometheus exporter (--profile observability, #33): exposes every recorded
+# entity — including the Victron battery/solar/tank sensors — at
+# /api/prometheus for VictoriaMetrics to scrape. Bearer-authenticated; loopback
+# only. No-op unless the observability stack is running.
+prometheus:
+  namespace: hass
+
+# Curated YAML dashboard, mounted from `HA_DASHBOARD` (the example ships here;
+# a real deployment points it at its own). The native Energy dashboard
+# (/energy) is configured separately via energy_prefs.py.
+lovelace:
+  dashboards:
+    coach-overview:
+      mode: yaml
+      title: Coach
+      icon: mdi:rv-truck
+      show_in_sidebar: true
+      filename: coach-overview.yaml
+
+# --- Automations ---
+# Mounted from `HA_AUTOMATIONS` (the example ships here). Automations are
+# written against a particular coach's entity ids, so real ones live with that
+# deployment's inventory rather than in this repo.
+#
+# NOTE: the generator low-fuel alarm (the Onan loses prime ~30%) needs the
+# *diesel* tank, which is NOT on the Victron/Firefly bus. The 2026-07-20 read-only
+# pull shows only tanks fresh(1)/grey(2)/black(5)/LPG(176) — no fuel(0)/diesel(7)
+# instance. Chassis diesel level lives on the vehicle J1939 bus (separate
+# integration, TBD). LPG (tank 176) is cooking/appliance propane, not gen fuel.
+#
+# Tank CustomName/Capacity are unset on the Cerbo (settings/0/Settings/...), so
+# HA shows % only until they're named on the GX or overridden here via customize.
+automation: !include automations.yaml

@@ -1,0 +1,22 @@
+# Home Assistant automations — EXAMPLE.
+#
+# Real automations reference a particular coach's entity ids, so they live with
+# that deployment's inventory and are mounted via `HA_AUTOMATIONS`. Tank levels
+# are the usual first alert: entity ids come from the victron_gx config flow and
+# differ per installation, so confirm them before relying on this.
+- id: coach_fresh_water_low
+  alias: Coach — fresh water low
+  description: Warn once the fresh tank drops below a quarter.
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.tank_sensor_id_1_level
+      below: 25
+      for: "00:05:00"
+  conditions: []
+  actions:
+    - action: persistent_notification.create
+      data:
+        title: Fresh water low
+        message: >-
+          Fresh water is at {{ states('sensor.tank_sensor_id_1_level') }}%.
+  mode: single

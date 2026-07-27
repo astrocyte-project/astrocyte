@@ -1,0 +1,3 @@
+# Live container status/stats via the read-only Docker socket mount.
+my-docker:
+  socket: /var/run/docker.sock
