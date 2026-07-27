@@ -6,7 +6,7 @@ import pytest
 from can import Message
 from can.io import CanutilsLogReader
 
-from astrocyte.rvc import DecodedMessage, RvcDecoder
+from astrocyte.rvc import DecodedMessage, RvcDecoder, RvcSpec
 from astrocyte.rvc.decoder import make_can_id, split_can_id
 
 FIXTURE = Path(__file__).parent / "fixtures" / "rvc" / "coach-synthetic.log"
@@ -153,3 +153,36 @@ def test_unknown_pdu2_dgn_stays_unknown() -> None:
     assert msg.category == "unknown"
     assert msg.name == "UNKNOWN_1F0F0"
     assert msg.destination_address is None  # PDU2: no destination-mask retry
+
+
+def test_aquahot_heat_source_decodes_preheat() -> None:
+    """1FE99 is the only frame carrying Engine Preheat (coach 41crb capture).
+
+    Payloads are verbatim from preheat-capture-20260727-153852.log, taken while
+    each switch was thrown one at a time.
+    """
+    decoder = RvcDecoder(RvcSpec.load_vendored())
+    can_id = make_can_id(0x1FE99, source_address=0x96)
+
+    # 15:41:27 — burner + electric enabled, preheat ON.
+    msg = decoder.decode(can_id, bytes.fromhex("0111001000000004"))
+    assert msg is not None
+    fields = {f.name: f for f in msg.fields}
+    assert fields["burner_enabled"].value == 1
+    assert fields["electric_element_enabled"].value == 1
+    assert fields["engine_preheat_active"].label == "engine preheat active"
+
+    # 15:42:02 — same sources, preheat OFF again.
+    msg = decoder.decode(can_id, bytes.fromhex("0111000000000004"))
+    assert msg is not None
+    fields = {f.name: f for f in msg.fields}
+    assert fields["engine_preheat_active"].label == "engine preheat off"
+    assert fields["burner_enabled"].value == 1
+
+    # 15:43:02 — everything off.
+    msg = decoder.decode(can_id, bytes.fromhex("0100000000000004"))
+    assert msg is not None
+    fields = {f.name: f for f in msg.fields}
+    assert fields["burner_enabled"].value == 0
+    assert fields["electric_element_enabled"].value == 0
+    assert fields["engine_preheat_active"].value == 0

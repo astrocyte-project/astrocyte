@@ -9,6 +9,29 @@ Package versions are derived from `v*` git tags (see
 
 ## [Unreleased]
 
+### Added
+
+- **Engine Preheat is decoded.** `1FE99` is promoted from `internal` to `data`
+  as `AQUAHOT_HEAT_SOURCE_STATUS`, carrying burner-enabled, electric-enabled and
+  engine-preheat-active. It is the only frame on the bus that reports preheat —
+  nothing in `WATERHEATER_STATUS` carries it, which is why earlier decode passes
+  could not find it. Decoded from a 74,713-frame capture taken while each switch
+  was thrown one at a time; the frame's own byte 1 reproduces
+  `WATERHEATER_STATUS` `operating modes` at every transition, which is what
+  makes the preheat bit a reading rather than a guess.
+
+### Fixed
+
+- **`WATERHEATER_STATUS` `burner status` was mislabelled.** The vendored table
+  names its active value "ac element is active", on a field that tracks the
+  diesel burner: it went active on the same timestamp as `operating modes` →
+  combustion, cleared with it, and stayed off through every electric-only
+  period. Read literally the old label invites building an "electric element on"
+  indicator out of a burner field — and nothing anywhere reports the electric
+  element's run state, since `ac element status` is a *fault* field. Corrected
+  via a supplement override, leaving the vendored table byte-identical for
+  re-vendoring.
+
 ## [0.3.5] — 2026-07-27
 
 The coach's RV-C device map, rebuilt from the bus rather than from notes. A full

@@ -161,9 +161,59 @@ API_VERSION: 0
   name: PROP_STATUS_1FE82
   category: internal
 
+# Promoted from `internal` to `data` 2026-07-27: this is the AquaHot module's
+# heat-source status, and it is the ONLY place Engine Preheat is reported.
+#
+# Decoded by capturing the bus while each switch was toggled one at a time on
+# coach 41crb (74,713 frames):
+#
+#   15:40:37 burner on   ->  byte1 10 -> 11
+#   15:41:27 preheat ON  ->  byte3 00 -> 10
+#   15:42:02 preheat OFF ->  byte3 10 -> 00
+#   15:42:27 burner off  ->  byte1 11 -> 10
+#   15:43:02 electric off->  byte1 10 -> 00
+#
+# Byte 1 is what makes byte 3 trustworthy rather than a guess: its two bits
+# reproduce WATERHEATER_STATUS `operating modes` at every one of those
+# transitions (bit 0 = combustion, bit 4 = electric, both set = "gas electric"),
+# so the frame's layout is corroborated by an independently decoded DGN before
+# any claim is made about the preheat bit.
+#
+# Engine Preheat circulates the AquaHot's coolant through the coach's diesel
+# engine to warm it before a cold start; the appliance manual requires the
+# burner ON as well. Nothing in WATERHEATER_STATUS carries it, which is why
+# earlier decode passes could not find it.
+#
+# Bytes 2 and 4-6 are static at 00 and byte 7 static at 04 across every capture,
+# so they are left undeclared rather than guessed at.
 "1FE99":
-  name: PROP_STATUS_1FE99
-  category: internal
+  name: AQUAHOT_HEAT_SOURCE_STATUS
+  category: data
+  parameters:
+    - byte: 0
+      name: instance
+      type: uint8
+    - byte: 1
+      bit: 0
+      name: burner enabled
+      type: bit1
+      values:
+        0: burner not enabled
+        1: burner enabled
+    - byte: 1
+      bit: 4
+      name: electric element enabled
+      type: bit1
+      values:
+        0: electric element not enabled
+        1: electric element enabled
+    - byte: 3
+      bit: 4
+      name: engine preheat active
+      type: bit1
+      values:
+        0: engine preheat off
+        1: engine preheat active
 
 "1FDFF":
   name: PROP_STATUS_1FDFF
@@ -176,3 +226,100 @@ API_VERSION: 0
 "1FACE":
   name: PROP_IDENT_1FACE
   category: internal
+
+# --- Bucket C: corrections to vendored decode tables --------------------------
+
+# WATERHEATER_STATUS, overridden ONLY to fix one wrong value label. The vendored
+# table gives `burner status` bit 01 the label "ac element is active", which is
+# a different appliance component than the field name describes.
+#
+# The bus settles it. On coach 41crb, `burner status` went active on the SAME
+# timestamp as `operating modes` -> combustion (15:58:07) and both cleared
+# together 20 s later, and it stayed off through every electric-only period. It
+# tracks the DIESEL BURNER firing, never the AC element.
+#
+# The mislabel is not cosmetic: read literally it invites building an
+# "electric element is on" indicator out of a field that reports the burner —
+# and no field anywhere reports the electric element's run state (see
+# `ac element status` below, which is a FAULT field, not an activity one).
+#
+# The whole body is restated because the loader replaces a colliding DGN
+# wholesale rather than merging parameter-by-parameter. It is otherwise a
+# verbatim copy of the vendored 1FFF7 — diff it against `rvc-spec.yml` when
+# re-vendoring, and keep this entry only while upstream still carries the wrong
+# label.
+"1FFF7":
+  name: WATERHEATER_STATUS
+  category: data
+  parameters:
+    - byte: 0
+      name: instance
+      type: uint8
+    - byte: 1
+      name: operating modes
+      type: uint8
+      values:
+        0: off
+        1: combustion
+        2: electric
+        3: gas electric
+        4: automatic
+        5: test combustion
+        6: test electric
+    - byte: 2-3
+      name: set point temperature
+      type: uint16
+      unit: Deg C
+    - byte: 4-5
+      name: water temperature
+      type: uint16
+      unit: Deg C
+    - byte: 6
+      bit: 0-1
+      name: thermostat status
+      type: bit
+      values:
+        00: set point met
+        01: set point not met
+    - byte: 6
+      bit: 2-3
+      name: burner status
+      type: bit
+      values:
+        00: off
+        01: burner is active
+    - byte: 6
+      bit: 4-5
+      name: ac element status
+      type: bit
+      values:
+        00: no fault
+        01: open neutral fault detected
+    - byte: 6
+      bit: 6-7
+      name: high temperature limit switch status
+      type: bit
+      values:
+        00: limit switch not tripped
+        01: limit switch tripped
+    - byte: 7
+      bit: 0-1
+      name: failure to ignite status
+      type: bit
+      values:
+        00: no failure
+        01: failed to ignite
+    - byte: 7
+      bit: 2-3
+      name: ac power failure status
+      type: bit
+      values:
+        00: ac power present
+        01: ac power not present
+    - byte: 7
+      bit: 4-5
+      name: dc power failure status
+      type: bit
+      values:
+        00: dc power present
+        01: dc power not present
