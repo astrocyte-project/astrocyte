@@ -12,7 +12,10 @@ on:
     types: [opened, synchronize, reopened]
 
 concurrency:
-  group: labeler-${{ github.ref }}
+  # Keyed on the PR, not the ref: `pull_request_target` sets github.ref to the
+  # BASE branch, so every open PR shared one group and cancelled the others.
+  # A burst of dependabot PRs left only the last one labelled.
+  group: labeler-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 permissions:
