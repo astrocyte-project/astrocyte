@@ -142,8 +142,8 @@ milestones:
 # ---------------------------------------------------------------------------
 project:
   owner: "astrocyte-project"
-  number: 11
-  title: "Astrocyte 1.0"
+  number: 1
+  title: "astrocyte v1"
   fields:
     - name: "Effort"
       type: "single_select"
