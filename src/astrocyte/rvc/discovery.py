@@ -66,6 +66,11 @@ def _slug(name: str) -> str:
 #: i.e. 125% — for a fixture turned fully on, so that is the top of the scale.
 _FULL_SCALE_PCT = 125.0
 
+#: HA's default availability payloads. A fixture is "unavailable" until the
+#: bridge observes a command for it, so an unknown level cannot render as `off`.
+_OBSERVED = "online"
+_UNOBSERVED = "offline"
+
 
 def _to_255(level_pct: float) -> int:
     """Decoded RV-C percent -> HA's 0-255 brightness."""
@@ -183,6 +188,18 @@ class DiscoveryBuilder:
     def light_state_topic(self, command_instance: int) -> str:
         return f"{self.state_prefix}/state/light/{command_instance}"
 
+    def light_seen_topic(self, command_instance: int) -> str:
+        """Per-fixture availability: has this fixture been observed *yet*?
+
+        The bus carries no light state broadcast, so a fixture's level is known
+        only from an observed ``DC_DIMMER_COMMAND_2``. State topics are retained,
+        so without this a value from a previous session is replayed on restart
+        and renders identically to a live reading — and any switch thrown while
+        the bridge was down is missed permanently. Marking a fixture unavailable
+        until it is observed makes "not known" distinguishable from "off".
+        """
+        return f"{self.state_prefix}/seen/light/{command_instance}"
+
     @staticmethod
     def light_state_payload(brightness_pct: float) -> str:
         """State the bridge publishes when it observes a light's command."""
@@ -222,7 +239,13 @@ class DiscoveryBuilder:
                 "sw_version": __version__,
                 "support_url": "https://github.com/astrocyte-project/astrocyte",
             },
-            "availability_topic": self.availability_topic,
+            # Two gates, both required: the bridge must be up AND this fixture
+            # must have been observed since it started.
+            "availability": [
+                {"topic": self.availability_topic},
+                {"topic": self.light_seen_topic(entry.command_instance)},
+            ],
+            "availability_mode": "all",
             "components": {
                 "light": {
                     "platform": "light",
@@ -241,9 +264,15 @@ class DiscoveryBuilder:
                     ),
                     "command_topic": f"{cmd}/switch",
                     "brightness_state_topic": state_topic,
+                    # Scale against _FULL_SCALE_PCT, not 100. The decoder yields
+                    # RV-C percent and a fully-on interior fixture reports 125%,
+                    # so the old `* 2.55` gave 318 for it and 255 for a 100%
+                    # exterior fixture — HA clamped both and two genuinely
+                    # different levels rendered identically as 255.
                     "brightness_value_template": (
-                        "{{ (value_json.brightness | float(0) * 2.55) "
-                        "| round(0) | int }}"
+                        "{{ [ (value_json.brightness | float(0) "
+                        f"* 255 / {_FULL_SCALE_PCT}) | round(0) | int, 255 ] "
+                        "| min }}"
                     ),
                     "brightness_command_topic": f"{cmd}/brightness",
                     "payload_on": "ON",
@@ -261,6 +290,10 @@ class DiscoveryBuilder:
 
     def rgb_object_id(self, fixture: RgbFixture) -> str:
         return f"rvc_{self.coach_id}_rgb_{fixture.command_instance}"
+
+    def rgb_seen_topic(self, command_instance: int) -> str:
+        """Per-fixture availability for a colour fixture (see light_seen_topic)."""
+        return f"{self.state_prefix}/seen/rgb/{command_instance}"
 
     def rgb_state_topic(self, command_instance: int) -> str:
         return f"{self.state_prefix}/state/rgb/{command_instance}"
@@ -310,7 +343,11 @@ class DiscoveryBuilder:
                 "sw_version": __version__,
                 "support_url": "https://github.com/astrocyte-project/astrocyte",
             },
-            "availability_topic": self.availability_topic,
+            "availability": [
+                {"topic": self.availability_topic},
+                {"topic": self.rgb_seen_topic(fixture.command_instance)},
+            ],
+            "availability_mode": "all",
             "components": {
                 "light": {
                     "platform": "light",
@@ -349,6 +386,42 @@ class DiscoveryBuilder:
     def light_discoveries(self) -> list[MqttPublish]:
         """Discovery for every mapped light — published at startup + HA birth."""
         return [self.light_discovery(e) for e in self.instances.lights]
+
+    def unobserved_publishes(self) -> list[MqttPublish]:
+        """Mark every mapped fixture unobserved. Emitted once, at startup.
+
+        Retained, so the mark survives an HA restart the same way the stale
+        state it guards against does. Each fixture clears itself the first time
+        the bridge sees a command for it.
+        """
+        return [
+            MqttPublish(topic=topic, payload=_UNOBSERVED, retain=True)
+            for topic in (
+                *(
+                    self.light_seen_topic(e.command_instance)
+                    for e in self.instances.lights
+                ),
+                *(
+                    self.rgb_seen_topic(f.command_instance)
+                    for f in self.instances.rgb_fixtures
+                ),
+            )
+        ]
+
+    def light_observed_publish(self, command_instance: int) -> MqttPublish:
+        """Clear the unobserved mark for one fixture."""
+        return MqttPublish(
+            topic=self.light_seen_topic(command_instance),
+            payload=_OBSERVED,
+            retain=True,
+        )
+
+    def rgb_observed_publish(self, command_instance: int) -> MqttPublish:
+        return MqttPublish(
+            topic=self.rgb_seen_topic(command_instance),
+            payload=_OBSERVED,
+            retain=True,
+        )
 
     def light_discovery_removals(self) -> list[MqttPublish]:
         """Empty retained payloads that retire every mapped light from HA.

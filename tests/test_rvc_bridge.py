@@ -6,6 +6,7 @@ transmittable frame, no matter what arrives on the command topics.
 
 import json
 
+import jinja2
 import pytest
 
 from astrocyte.rvc import RvcDecoder
@@ -192,7 +193,10 @@ def test_observed_command_publishes_light_state() -> None:
     bridge = make_bridge(instances=LIGHT_MAP)
     publishes = bridge.handle_frame(*CEILING_CMD)
     assert [(p.topic, p.payload) for p in publishes] == [
-        ("rvc/state/light/70", '{"brightness": 125.0}')
+        ("rvc/state/light/70", '{"brightness": 125.0}'),
+        # Observing a command is what makes the fixture available: until then
+        # HA must not be told a level the bridge has not actually seen.
+        ("rvc/seen/light/70", "online"),
     ]
 
 
@@ -211,6 +215,10 @@ def test_startup_publishes_light_discovery() -> None:
     assert topics == {
         "homeassistant/device/rvc_refcoach_light_70/config",
         "homeassistant/device/rvc_refcoach_light_55/config",
+        # Every mapped fixture starts unobserved, so a retained level from a
+        # previous session cannot be replayed to HA as a live reading.
+        "rvc/seen/light/70",
+        "rvc/seen/light/55",
     }
 
 
@@ -327,3 +335,63 @@ def test_rgb_discovery_published_at_startup_and_birth() -> None:
     assert "homeassistant/device/rvc_refcoach_rgb_77/config" in topics
     birth = [p.topic for p in bridge.handle_ha_status("online")]
     assert "homeassistant/device/rvc_refcoach_rgb_77/config" in birth
+
+
+def test_startup_marks_every_fixture_unobserved() -> None:
+    """A retained level from a previous session must not read as live.
+
+    Light state topics are retained and the bus carries no state broadcast, so
+    on restart HA replays whatever was last published. Marking each fixture
+    unavailable until observed keeps "not known" distinguishable from "off" —
+    without it a fixture switched off while the bridge was down reports `on`
+    indefinitely.
+    """
+    bridge = make_bridge(instances=LIGHT_MAP)
+    marks = {
+        p.topic: p.payload
+        for p in bridge.startup_publishes()
+        if p.topic.startswith("rvc/seen/")
+    }
+    assert marks == {"rvc/seen/light/70": "offline", "rvc/seen/light/55": "offline"}
+    assert all(p.retain for p in bridge.startup_publishes())
+
+
+def test_light_discovery_requires_both_availability_gates() -> None:
+    """The fixture is available only if the bridge is up AND it was observed."""
+    bridge = make_bridge(instances=LIGHT_MAP)
+    config = next(
+        p
+        for p in bridge.startup_publishes()
+        if p.topic.endswith("rvc_refcoach_light_70/config")
+    )
+    payload = json.loads(config.payload)
+    assert payload["availability_mode"] == "all"
+    assert [a["topic"] for a in payload["availability"]] == [
+        "rvc/bridge/status",
+        "rvc/seen/light/70",
+    ]
+
+
+def test_brightness_template_scales_against_full_scale_not_100() -> None:
+    """125% (interior, raw 250) and 100% (exterior, raw 200) must differ.
+
+    The old template multiplied by 2.55, giving 318 and 255; HA clamps at 255
+    so both rendered identically and the level information was destroyed.
+    """
+    bridge = make_bridge(instances=LIGHT_MAP)
+    config = next(
+        p
+        for p in bridge.startup_publishes()
+        if p.topic.endswith("rvc_refcoach_light_70/config")
+    )
+    template = json.loads(config.payload)["components"]["light"][
+        "brightness_value_template"
+    ]
+    assert "2.55" not in template
+    assert "255 / 125" in template
+
+    env = jinja2.Environment(autoescape=False)  # noqa: S701 - not HTML
+    render = env.from_string(template.replace("value_json", "v")).render
+    assert int(render(v={"brightness": 125.0})) == 255
+    assert int(render(v={"brightness": 100.0})) == 204
+    assert int(render(v={"brightness": 0.0})) == 0

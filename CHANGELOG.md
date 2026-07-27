@@ -32,6 +32,23 @@ Package versions are derived from `v*` git tags (see
   via a supplement override, leaving the vendored table byte-identical for
   re-vendoring.
 
+- **A light's level no longer renders as fact before the bridge has seen it.**
+  Light state topics are retained and the bus carries no state broadcast, so on
+  restart HA replayed a level from a previous session indistinguishably from a
+  live reading — and a switch thrown while the bridge was down was missed for
+  good. Observed on the reference coach: 19 of 25 fixtures reported the bridge's
+  own start time as their last change, 11 of them claiming `on` while physically
+  off. Each fixture now carries a second availability gate and starts
+  **unobserved**, clearing itself the first time a command for it is seen, so
+  "not known" is distinguishable from "off".
+
+- **Brightness no longer collapses two different levels onto 255.** The light
+  discovery template scaled by `* 2.55`, i.e. against 100%, but the decoder
+  yields RV-C percent where a fully-on interior fixture reports **125%**. That
+  produced 318 for an interior fixture and 255 for a 100% exterior one, both
+  clamped by HA to 255. It now scales against `_FULL_SCALE_PCT` — the same
+  constant the colour-fixture path already used — so 125% → 255 and 100% → 204.
+
 ## [0.3.5] — 2026-07-27
 
 The coach's RV-C device map, rebuilt from the bus rather than from notes. A full

@@ -29,7 +29,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from astrocyte.rvc.decoder import DecodedMessage, RvcDecoder, make_can_id
 from astrocyte.rvc.discovery import DiscoveryBuilder, MqttPublish
 from astrocyte.rvc.encoder import DimmerCommand, encode_fields
-from astrocyte.rvc.instances import InstanceMap
+from astrocyte.rvc.instances import InstanceMap, RgbFixture
 
 logger = logging.getLogger(__name__)
 
@@ -149,9 +149,20 @@ class RvcBridge:
             light_state = self._light_state_publish(message)
             if light_state is not None:
                 publishes.append(light_state)
+                # This fixture is now observed, so it may become available.
+                assert message.instance is not None
+                publishes.append(
+                    self.discovery.light_observed_publish(message.instance)
+                )
             rgb_state = self._rgb_state_publish(message)
             if rgb_state is not None:
                 publishes.append(rgb_state)
+                assert message.instance is not None
+                fixture = self._rgb_fixture_for(message.instance)
+                if fixture is not None:
+                    publishes.append(
+                        self.discovery.rgb_observed_publish(fixture.command_instance)
+                    )
             return publishes
 
         discovery = self._discover(message)
@@ -182,6 +193,14 @@ class RvcBridge:
             payload=self.discovery.light_state_payload(float(level)),
             retain=True,
         )
+
+    def _rgb_fixture_for(self, instance: int) -> RgbFixture | None:
+        """Resolve a colour fixture from a switch *or* channel instance."""
+        fixture = self.instances.rgb_by_switch_instance(instance)
+        if fixture is not None:
+            return fixture
+        found = self.instances.rgb_by_channel_instance(instance)
+        return None if found is None else found[0]
 
     def _rgb_state_publish(self, message: DecodedMessage) -> MqttPublish | None:
         """Colour-fixture state from an observed switch or channel command.
@@ -230,8 +249,20 @@ class RvcBridge:
         return publish
 
     def startup_publishes(self) -> list[MqttPublish]:
-        """Retained publishes to emit once on connect (mapped-light discovery)."""
-        return [*self.discovery.light_discoveries(), *self.discovery.rgb_discoveries()]
+        """Retained publishes to emit once on connect.
+
+        Mapped-light discovery, plus an unobserved mark for every fixture. The
+        mark matters because light state topics are retained and the bus carries
+        no state broadcast: without it, a level from a previous session is
+        replayed on restart and is indistinguishable from a live reading, and a
+        switch thrown while the bridge was down is missed for good. Each fixture
+        clears its own mark the first time a command for it is observed.
+        """
+        return [
+            *self.discovery.light_discoveries(),
+            *self.discovery.rgb_discoveries(),
+            *self.discovery.unobserved_publishes(),
+        ]
 
     def handle_ha_status(self, payload: str) -> list[MqttPublish]:
         """Re-publish all discoveries when HA announces its birth."""
