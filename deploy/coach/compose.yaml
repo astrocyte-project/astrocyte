@@ -220,10 +220,17 @@ services:
       - -promscrape.config=/etc/victoriametrics/scrape.yml
       - -promscrape.configCheckInterval=60s
       - -remoteWrite.url=http://127.0.0.1:8428/api/v1/write
-      - -remoteWrite.url=http://192.0.2.21:8428/api/v1/write
+      - -remoteWrite.url=http://${VM_LONGTERM_ADDR:-192.0.2.21:8428}/api/v1/write
       - -remoteWrite.tmpDataPath=/vmagent-data
       - -remoteWrite.maxDiskUsagePerURL=512MB
       - -httpListenAddr=127.0.0.1:8429
+    environment:
+      # Substituted into scrape.yml before it is parsed. Soft default keeps every
+      # other profile interpolating (a hard ${VAR:?} guard here would break
+      # `--profile sim` and the CI e2e, as GRAFANA_PASSWORD once did) — an unset
+      # value simply leaves the router target unreachable, which shows up as
+      # up{job="coach-router"}=0 rather than a silent gap.
+      COACH_ROUTER_ADDR: ${COACH_ROUTER_ADDR:-192.0.2.1:9100}
     volumes:
       - vmagent_data:/vmagent-data
       - ./config/victoriametrics/scrape.yml:/etc/victoriametrics/scrape.yml:z

@@ -1,10 +1,15 @@
 [Unit]
-Description=Push coach-router dpinger gateway quality into VictoriaMetrics
-Documentation=https://github.com/astrocyte-project/infra/blob/main/docs/coach-monitoring.md
+Description=Push OPNsense dpinger gateway quality into VictoriaMetrics
+Documentation=https://github.com/astrocyte-project/astrocyte/blob/main/docs/runbooks/coach-node-provisioning.md
 After=network-online.target
 
 [Service]
 Type=oneshot
+# The router's address is a deployment input, not part of this unit: put
+# COACH_ROUTER_URL=https://<addr> in the file below (mode 600 alongside the API
+# key). The poller exits non-zero with a clear message if it is unset, so a
+# missing file fails visibly instead of polling nothing.
+EnvironmentFile=%h/.config/coach-gw-metrics.env
 ExecStart=/usr/bin/python3 %h/bin/coach-gw-metrics.py --api-key-file %h/.config/opnsense-metrics-apikey.txt
 # Uses a dedicated OPNsense account (svc-metrics) holding only page-system-gateways,
 # so a compromise here cannot reconfigure the firewall.

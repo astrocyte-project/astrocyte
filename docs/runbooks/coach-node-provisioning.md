@@ -120,6 +120,20 @@ Fill `.env` in this order:
   facts about *one coach* — they belong with that coach's records, not in this repo
   (ADR-012). The paths above are the only coupling.
 
+  The same rule covers the scalar values that *address* a deployment, so no shipped
+  file has to be edited on the node:
+
+  ```bash
+  COACH_ID=refcoach                  # this coach's identifier
+  COACH_ROUTER_ADDR=192.0.2.1:9100   # substituted into scrape.yml
+  VM_LONGTERM_ADDR=192.0.2.21:8428   # vmagent's second, independent write queue
+  ```
+
+  Note what is **not** here: the `host="coach-router"` label. The scrape config pins
+  it regardless of what the router is called locally, and every WAN dashboard query
+  keys on it. Localising that label is a silent break — the panels still render, they
+  just match nothing.
+
 - **Dashboards**: the curated **Coach** dashboard (home / lights / climate /
   power / tanks / system) is a YAML dashboard mounted from
   `config/homeassistant/coach-overview.yaml` — it appears in the sidebar
@@ -198,13 +212,17 @@ secret; the downloaded `key=`/`secret=` prefixes are fine). Then:
 ```bash
 cp deploy/coach/bin/coach-gw-metrics.py ~/bin/
 cp deploy/coach/systemd/coach-gw-metrics.{service,timer} ~/.config/systemd/user/
+# The router's address is an input, never baked into the script or the unit:
+printf 'COACH_ROUTER_URL=https://<router mgmt addr>\n' > ~/.config/coach-gw-metrics.env
+chmod 600 ~/.config/coach-gw-metrics.env
 systemctl --user daemon-reload
 systemctl --user enable --now coach-gw-metrics.timer
 loginctl enable-linger $USER   # required — otherwise the timer dies at logout, silently
 ```
 
-If the router's mgmt address is not the reference coach's `192.0.2.254`,
-pass `--coach-router https://<addr>` in the service's `ExecStart`.
+The poller exits non-zero with `pass --router or set COACH_ROUTER_URL` if that
+file is missing, so a skipped step fails visibly rather than polling nothing.
+To override per-invocation (e.g. for `--dry-run`), pass `--router https://<addr>`.
 
 Verify with `--dry-run` before trusting the dashboard: it prints the exact
 metric names, and a panel on a wrong name renders **empty, not an error**

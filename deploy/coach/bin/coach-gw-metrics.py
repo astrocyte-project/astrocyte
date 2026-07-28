@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Poll coach-router's gateway status and push it to VictoriaMetrics as metrics.
+"""Poll the coach router's gateway status and push it to VictoriaMetrics as metrics.
 
-Runs on coach-node. Reads OPNsense's dpinger results over the API and writes
+Runs on the coach node. Reads OPNsense's dpinger results over the API and writes
 Prometheus-format samples to VictoriaMetrics, so WAN latency, jitter, packet loss
 and up/down are graphable in Grafana alongside the node_exporter interface counters.
 
@@ -10,10 +10,12 @@ router's modest CPU. The coach node already has a permitted path to the
 router's mgmt IP, so no new firewall rule is needed.
 
 Usage (every 30s via the systemd user timer in deploy/coach/systemd/):
-    coach-gw-metrics.py --api-key-file ~/.config/opnsense-metrics-apikey.txt
+    COACH_ROUTER_URL=https://<addr> \\
+      coach-gw-metrics.py --api-key-file ~/.config/opnsense-metrics-apikey.txt
 
-Env/flags:
-    --router            router mgmt URL      (default https://192.0.2.254)
+Flags:
+    --router      router mgmt URL, or COACH_ROUTER_URL (no default: a
+                  deployment's address is an input, never baked in here)
     --vm          VictoriaMetrics import URL (default http://127.0.0.1:8428)
     --dry-run     print the metrics instead of pushing
 
@@ -24,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import ssl
 import sys
 import urllib.error
@@ -68,7 +71,7 @@ def fetch_gateways(base: str, key: str, secret: str, insecure: bool) -> list[dic
     req.add_header("Authorization", f"Basic {token}")
     ctx = None
     if insecure:
-        # coach-router uses a self-signed cert on its mgmt interface.
+        # OPNsense ships a self-signed cert on its mgmt interface.
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
@@ -122,7 +125,15 @@ def push(vm_base: str, payload: str) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--router", default="https://192.0.2.254")
+    # No default: the router's address identifies a deployment, so it is an
+    # input rather than something this file carries. A placeholder default
+    # would only be edited on the node, which is how this script and its unit
+    # drifted apart in the first place.
+    ap.add_argument(
+        "--router",
+        default=os.environ.get("COACH_ROUTER_URL", ""),
+        help="router mgmt URL, e.g. https://<addr> (or set COACH_ROUTER_URL)",
+    )
     ap.add_argument("--vm", default="http://127.0.0.1:8428")
     ap.add_argument(
         "--api-key-file", required=True, help="two lines: API key, then API secret"
@@ -131,10 +142,13 @@ def main() -> int:
         "--insecure",
         action="store_true",
         default=True,
-        help="accept coach-router self-signed cert (default on)",
+        help="accept the router's self-signed cert (default on)",
     )
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
+
+    if not args.router:
+        ap.error("pass --router or set COACH_ROUTER_URL")
 
     with open(args.api_key_file) as fh:
         parts = [ln.strip() for ln in fh if ln.strip()]

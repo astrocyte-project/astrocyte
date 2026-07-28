@@ -1,7 +1,11 @@
-# VictoriaMetrics scrape config (Prometheus-compatible). All targets are
-# loopback on the coach node (host networking, 127.0.0.1). NOTE: VM scans the
-# raw file for env-var refs before YAML parsing, so avoid writing the percent-
-# brace token syntax even in comments — it would try to expand it.
+# VictoriaMetrics scrape config (Prometheus-compatible). Every target but the
+# router is loopback on the coach node (host networking, 127.0.0.1).
+#
+# NOTE: the scraper expands env-var refs from the RAW file before YAML parsing,
+# so a percent-brace token is substituted even inside a comment, and an unset
+# variable is a startup error. Exactly one such token is used below
+# (COACH_ROUTER_ADDR); do not write the syntax anywhere else, including in
+# comments and including as an example.
 global:
   scrape_interval: 30s        # modest — limits SD write amplification
   scrape_timeout: 10s
@@ -44,10 +48,16 @@ scrape_configs:
   # host health. Scraped over the trusted VLAN address, which is the only one
   # node_exporter binds; permitted by the HA_HOST -> (self):9100 rule. igb1 is the
   # metered cellular WAN, so its counters are what the data-usage queries key on.
+  #
+  # The ADDRESS is a deployment input, substituted from COACH_ROUTER_ADDR (set on
+  # the vmagent service; "host:port"). The `host` LABEL is deliberately NOT — it
+  # stays the canonical `coach-router` whatever the box is called locally, because
+  # the WAN dashboard queries key on it. Renaming the label here to match a local
+  # hostname is what makes a dashboard match nothing while still rendering.
   - job_name: coach-router
     scrape_interval: 30s
     static_configs:
-      - targets: ["192.0.2.1:9100"]
+      - targets: ["%{COACH_ROUTER_ADDR}"]
         labels:
           host: coach-router
           role: firewall
