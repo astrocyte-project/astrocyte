@@ -26,6 +26,12 @@ Package versions are derived from `v*` git tags (see
 
 ### Added
 
+- **The System Health dashboard graphs its host metrics over time.** The CPU,
+  RAM, root-disk and SoC-temp tiles answered "what is it now" but not "how did
+  it get there". A history row under them plots the same four queries — CPU,
+  RAM and disk share one percent axis, SoC temp gets its own panel with the
+  warn/critical thresholds drawn in.
+
 - **Engine Preheat is decoded.** `1FE99` is promoted from `internal` to `data`
   as `AQUAHOT_HEAT_SOURCE_STATUS`, carrying burner-enabled, electric-enabled and
   engine-preheat-active. It is the only frame on the bus that reports preheat —
@@ -36,6 +42,33 @@ Package versions are derived from `v*` git tags (see
   makes the preheat bit a reading rather than a guess.
 
 ### Fixed
+
+- **Per-container metrics went missing on Docker 29.x, and the dashboard showed
+  it as an empty panel rather than an error.** Docker 29 defaults to the
+  containerd image store (`Storage Driver: overlayfs`), which retired the
+  `/var/lib/docker/image/<driver>/layerdb` path cAdvisor used to resolve a
+  container's read-write layer. cAdvisor v0.49.1 fails that lookup for every
+  container and registers none of them, yet the scrape still returns 200 and
+  `up` stays 1 — it just emits bare cgroups with no `name=`/`image=` label, so
+  the System Health container panels matched nothing and read as "no data".
+  cAdvisor moves to `ghcr.io/google/cadvisor:v0.60.5`, which carries the
+  upstream fix (google/cadvisor#3643 / #3709, released in v0.56.0). Verified on
+  the reference coach: all 11 stack containers now report by name. Deploy note:
+  the image is on ghcr.io because gcr.io stopped publishing after v0.49.x.
+
+- **cAdvisor's healthcheck probed another service's port.** The image's built-in
+  healthcheck targets `:8080`, which this deployment reassigns to UniFi's inform
+  port; UniFi answered 404 and the container reported `unhealthy` indefinitely
+  while collecting normally. It now probes `:8081/healthz`, where cAdvisor
+  actually listens.
+
+- **cAdvisor no longer scans the eMMC for filesystem metrics.** Per-container
+  disk accounting walks every overlayfs layer on a timer — 1.1-4.6 s per pass on
+  coach-node's card, which the rest of this stack goes out of its way to spare.
+  Disabled via `-disable_metrics=disk`; host filesystems come from node-exporter
+  and the cheap blkio counters are unaffected. `-store_container_labels=false`
+  drops a further ~660 series of mostly-empty label strings, and
+  `-docker_only=true` skips the systemd service cgroups no panel queries.
 
 - **`WATERHEATER_STATUS` `burner status` was mislabelled.** The vendored table
   names its active value "ac element is active", on a field that tracks the
