@@ -9,6 +9,8 @@ Package versions are derived from `v*` git tags (see
 
 ## [Unreleased]
 
+## [0.3.6] — 2026-07-28
+
 ### Security
 
 - **The RV-C bridge's generic command path is now default-deny** (ADR-014
@@ -494,7 +496,8 @@ everything the coach's always-on node runs, plus the Phase-0 foundation
   (`docs/project-management.md`, `.github/labels.md`, project-setup runbook) and
   ADR-009; full triage of the existing backlog onto the "Astrocyte 1.0" board.
 
-[Unreleased]: https://github.com/astrocyte-project/astrocyte/compare/v0.3.5...HEAD
+[Unreleased]: https://github.com/astrocyte-project/astrocyte/compare/v0.3.6...HEAD
+[0.3.6]: https://github.com/astrocyte-project/astrocyte/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/astrocyte-project/astrocyte/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/astrocyte-project/astrocyte/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/astrocyte-project/astrocyte/compare/v0.3.2...v0.3.3
