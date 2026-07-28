@@ -26,6 +26,16 @@ Package versions are derived from `v*` git tags (see
 
 ### Added
 
+- **System Health surfaces config drift.** Three panels report whether the node
+  still matches what config management converged it to: `Config drift`,
+  `Checks unavailable`, and `Drift check age`. The second two exist because the
+  interesting failures are not "it drifted" — they are "the check could not run"
+  and "the check stopped running". A drift gauge keeps its last value forever if
+  its producer dies, so a green *In sync* is only meaningful while the age panel
+  beside it is fresh; separating those three states is what stops a broken check
+  from reading as a passing one. Fed by the checker in `jomkz/infra` (#13);
+  panels show an explanatory empty state on deployments that do not run one.
+
 - **The System Health dashboard graphs its host metrics over time.** The CPU,
   RAM, root-disk and SoC-temp tiles answered "what is it now" but not "how did
   it get there". A history row under them plots the same four queries — CPU,
