@@ -334,7 +334,20 @@ services:
       HOMEPAGE_VAR_GRAFANA_USER: ${GRAFANA_USER:-admin}
       HOMEPAGE_VAR_GRAFANA_PASSWORD: ${GRAFANA_PASSWORD:-admin}
     volumes:
-      - ./config/homepage:/app/config:z
+      # Mounted FILE-BY-FILE and read-only, not as a directory. Homepage creates
+      # whatever config files it does not find (kubernetes.yaml, proxmox.yaml,
+      # custom.css/js) plus a logs/ directory, as root, on first start. With the
+      # directory bind-mounted those writes land in the deploy tree — so a git
+      # checkout there is permanently dirty and partly not owned by the deploying
+      # user, which rules out using `git status` as the drift signal
+      # (jomkz/infra#11). Mounting only the files we manage sends those writes to
+      # the container's own filesystem instead, where they belong: they are
+      # regenerated on every start and nothing reads them back.
+      - ./config/homepage/bookmarks.yaml:/app/config/bookmarks.yaml:ro,z
+      - ./config/homepage/docker.yaml:/app/config/docker.yaml:ro,z
+      - ./config/homepage/services.yaml:/app/config/services.yaml:ro,z
+      - ./config/homepage/settings.yaml:/app/config/settings.yaml:ro,z
+      - ./config/homepage/widgets.yaml:/app/config/widgets.yaml:ro,z
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
 volumes:
