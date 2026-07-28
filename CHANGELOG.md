@@ -43,6 +43,19 @@ Package versions are derived from `v*` git tags (see
 
 ### Fixed
 
+- **Homepage no longer writes into the deploy tree.** Its config directory was
+  bind-mounted, and Homepage creates any config file it does not find —
+  `kubernetes.yaml`, `proxmox.yaml`, `custom.css`, `custom.js` and a `logs/`
+  directory — **as root**, on first start. Those writes landed in
+  `deploy/coach/config/homepage/`, leaving the deploy tree permanently dirty and
+  partly not owned by the deploying user. Harmless while the node's copy was an
+  scp'd snapshot; disqualifying now that it should be a git checkout, since it
+  makes `git status` useless as a drift signal. The five managed files are now
+  mounted individually and read-only, so Homepage's scratch files go to the
+  container's own filesystem, where they are regenerated each start and nothing
+  reads them back. Verified against `homepage:v1.6.0`: serves 200, no restarts,
+  generated files land inside the container, host tree stays clean.
+
 - **`deploy/coach/` no longer carries a deployment's identity, so the shipped
   files are deployable as-is.** Four files hardcoded a site's hostname, address
   or coach id, which meant every deployment edited them on the node and the two
