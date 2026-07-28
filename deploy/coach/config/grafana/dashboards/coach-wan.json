@@ -1,7 +1,7 @@
 {
   "uid": "coach-wan",
   "title": "Coach WAN & Segments",
-  "description": "coach-router (OPNsense) WAN health and per-segment traffic. WAN1 = Starlink (igb0), WAN2 = WiFiRanger (igb1) and is the METERED link. Gateway quality series come from the coach-gw-metrics poller on coach-node; interface counters from node_exporter on 192.0.2.1:9100.",
+  "description": "coach-router (OPNsense) WAN health and per-segment traffic. WAN1 = Starlink (igb0), WAN2 = WiFiRanger (igb1) and is the METERED link. Gateway quality series come from the coach-gw-metrics poller on coach-node; interface counters from node_exporter on the router, scraped at COACH_ROUTER_ADDR. Every query keys on the canonical label host=\"coach-router\", which the scrape config assigns regardless of what the router is called locally — do not localise it here.",
   "tags": [
     "coach",
     "network",
@@ -9,7 +9,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": {
     "from": "now-6h",

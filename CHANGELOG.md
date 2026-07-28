@@ -43,6 +43,29 @@ Package versions are derived from `v*` git tags (see
 
 ### Fixed
 
+- **`deploy/coach/` no longer carries a deployment's identity, so the shipped
+  files are deployable as-is.** Four files hardcoded a site's hostname, address
+  or coach id, which meant every deployment edited them on the node and the two
+  copies could never be reconciled — a hand-merge in both directions forever.
+  The router's address is now substituted into `scrape.yml` from
+  `COACH_ROUTER_ADDR`, and vmagent's long-term write target from
+  `VM_LONGTERM_ADDR`. **The `host="coach-router"` label deliberately does not
+  move**: the scrape config pins it whatever the router is called locally, and
+  the WAN dashboard queries it, so the dashboard is now identical everywhere
+  instead of only working where the label happened to match. Verified with
+  vmagent: an injected address resolves as the target while the label stays
+  canonical, and an unset variable is a **fatal startup error naming the
+  variable** rather than a silently empty scrape.
+
+- **Two defects the hand-scrubbing had already introduced.** The gateway
+  poller's systemd unit documented `github.com/astrocyte-project/infra`, a repo
+  that does not exist. And the poller's router flag had drifted to three
+  different spellings across the script, its unit and the runbook, so following
+  the runbook produced an unrecognised-argument error. There is now one flag,
+  `--router`, which takes its value from `COACH_ROUTER_URL` and exits non-zero
+  naming the variable when neither is supplied — a skipped setup step fails
+  visibly instead of polling nothing.
+
 - **Per-container metrics went missing on Docker 29.x, and the dashboard showed
   it as an empty panel rather than an error.** Docker 29 defaults to the
   containerd image store (`Storage Driver: overlayfs`), which retired the
