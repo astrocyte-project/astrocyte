@@ -229,12 +229,33 @@ services:
       - ./config/victoriametrics/scrape.yml:/etc/victoriametrics/scrape.yml:z
       - ./config/victoriametrics/ha_token:/etc/victoriametrics/ha_token:ro
 
+  # v0.56.0 or newer is REQUIRED on Docker 29.x. Its containerd image store
+  # (Storage Driver "overlayfs") retired /var/lib/docker/image/<driver>/layerdb,
+  # where cAdvisor looked up a container's read-write layer. Older builds fail
+  # that lookup for EVERY container and then register none of them: the scrape
+  # still succeeds, but it carries only bare cgroups with no name=/image= label,
+  # so `container_*{name=~...}` queries silently match nothing. Upstream
+  # google/cadvisor#3643, fixed by #3709 and first released in v0.56.0.
+  # The image also moved: gcr.io/cadvisor/cadvisor stops at v0.49.x.
   cadvisor:
     profiles: ["observability"]
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    image: ghcr.io/google/cadvisor:v0.60.5
     restart: unless-stopped
     network_mode: host
-    command: ["-listen_ip=127.0.0.1", "-port=8081"]
+    command:
+      - -listen_ip=127.0.0.1
+      - -port=8081
+      # Only the compose stack is dashboarded; node-exporter already covers the
+      # host, so skip the systemd service cgroups.
+      - -docker_only=true
+      # Per-container filesystem accounting walks every overlayfs layer on a
+      # timer — on coach-node's eMMC each pass measured 1.1-4.6 s. Host
+      # filesystems come from node-exporter instead. Cheap blkio counters
+      # (the diskIO group, container_fs_reads/writes_*) are unaffected.
+      - -disable_metrics=disk
+      # Promoting Docker/compose labels to metric labels added ~660 series of
+      # mostly-empty strings that no dashboard queries.
+      - -store_container_labels=false
     privileged: true
     devices:
       - /dev/kmsg
@@ -244,6 +265,15 @@ services:
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
+    # The image's built-in healthcheck probes :8080, which this deployment
+    # reassigns to UniFi's inform port — it answers 404, so the container sat
+    # "unhealthy" forever while working fine. Probe the port cAdvisor listens on.
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8081/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   node-exporter:
     profiles: ["observability"]

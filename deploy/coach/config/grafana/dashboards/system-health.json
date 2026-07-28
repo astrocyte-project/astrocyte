@@ -4,7 +4,7 @@
   "tags": ["astrocyte", "coach", "system"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "refresh": "30s",
   "time": { "from": "now-6h", "to": "now" },
@@ -44,9 +44,31 @@
       "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
-      "type": "timeseries", "title": "Container CPU (cores)", "id": 5,
+      "type": "timeseries", "title": "Host CPU / RAM / Root disk — history", "id": 9,
+      "description": "History behind the CPU, RAM and Root disk tiles above. All three share the percent axis; the tiles show the latest value of these same queries.",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        { "refId": "A", "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))", "legendFormat": "CPU busy" },
+        { "refId": "B", "expr": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)", "legendFormat": "RAM used" },
+        { "refId": "C", "expr": "100 * (1 - node_filesystem_avail_bytes{mountpoint=\"/\",fstype=\"ext4\"} / node_filesystem_size_bytes{mountpoint=\"/\",fstype=\"ext4\"})", "legendFormat": "Root disk used" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "drawStyle": "line", "fillOpacity": 8, "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "type": "timeseries", "title": "SoC temp — history", "id": 10,
+      "description": "History behind the SoC temp tile above. Dashed lines mark the tile's warn (65 °C) and critical (80 °C) thresholds; the Pi 5 throttles at 80 °C.",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [ { "refId": "A", "expr": "max(node_hwmon_temp_celsius or node_thermal_zone_temp)", "legendFormat": "SoC temp" } ],
+      "fieldConfig": { "defaults": { "unit": "celsius", "custom": { "drawStyle": "line", "fillOpacity": 8, "lineWidth": 2, "thresholdsStyle": { "mode": "dashed" } }, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 65 }, { "color": "red", "value": 80 } ] } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "type": "timeseries", "title": "Container CPU (cores)", "id": 5,
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
       "targets": [ { "refId": "A", "expr": "rate(container_cpu_usage_seconds_total{name=~\"astrocyte-coach.+\"}[5m])", "legendFormat": "{{name}}" } ],
       "fieldConfig": { "defaults": { "unit": "none", "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "stacking": { "mode": "normal" } } }, "overrides": [] },
       "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
@@ -54,25 +76,27 @@
     {
       "type": "timeseries", "title": "Container Memory", "id": 6,
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
       "targets": [ { "refId": "A", "expr": "container_memory_working_set_bytes{name=~\"astrocyte-coach.+\"}", "legendFormat": "{{name}}" } ],
       "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "stacking": { "mode": "normal" } } }, "overrides": [] },
       "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
     },
     {
       "type": "timeseries", "title": "API request rate (by status)", "id": 7,
+      "description": "Empty until the API serves its first request. /health, /ready and /metrics are excluded from instrumentation, and the series are created lazily per handler/method/status — so a node whose API is only being probed reports nothing here, which is expected rather than broken.",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
       "targets": [ { "refId": "A", "expr": "sum by (status) (rate(http_requests_total[5m]))", "legendFormat": "{{status}}" } ],
-      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2 } }, "overrides": [] },
+      "fieldConfig": { "defaults": { "unit": "reqps", "noValue": "No API traffic yet — health probes are excluded from metrics", "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
     },
     {
       "type": "timeseries", "title": "API latency p95 (s)", "id": 8,
+      "description": "Empty until the API serves its first request — see the panel beside it.",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
       "targets": [ { "refId": "A", "expr": "histogram_quantile(0.95, sum by (le, handler) (rate(http_request_duration_seconds_bucket[5m])))", "legendFormat": "{{handler}}" } ],
-      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2 } }, "overrides": [] },
+      "fieldConfig": { "defaults": { "unit": "s", "noValue": "No API traffic yet — health probes are excluded from metrics", "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
     }
   ]
