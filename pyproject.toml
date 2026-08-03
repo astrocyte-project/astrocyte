@@ -55,7 +55,7 @@ rvc = [       # RV-C CAN bridge & decoder (ADR-012)
     "msgpack>=1.0",
 ]
 ha = [        # Home Assistant client + MCP server (ADR-011)
-    "websockets>=16.1.1",
+    "websockets>=17.0.1",
 ]
 
 [dependency-groups]
