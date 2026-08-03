@@ -12,7 +12,7 @@ authors = [{ name = "astrocyte-project" }]
 keywords = ["self-hosted", "ai", "agents", "mcp", "rag", "docker"]
 dynamic = ["version"]
 dependencies = [
-    "fastapi>=0.140.7",
+    "fastapi>=0.141.1",
     "uvicorn[standard]>=0.51.0",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
@@ -60,7 +60,7 @@ ha = [        # Home Assistant client + MCP server (ADR-011)
 
 [dependency-groups]
 dev = [
-    "ruff>=0.16.0",
+    "ruff>=0.16.1",
     "mypy>=2.3.0",
     "pytest>=8.3",
     "pytest-cov>=6.0",
