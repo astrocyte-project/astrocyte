@@ -12,10 +12,10 @@ authors = [{ name = "astrocyte-project" }]
 keywords = ["self-hosted", "ai", "agents", "mcp", "rag", "docker"]
 dynamic = ["version"]
 dependencies = [
-    "fastapi>=0.140.7",
+    "fastapi>=0.141.1",
     "uvicorn[standard]>=0.51.0",
     "pydantic>=2.9",
-    "pydantic-settings>=2.6",
+    "pydantic-settings>=2.15.0",
     "httpx>=0.28",
     "pyyaml>=6.0",
     # Prometheus /metrics for the observability stack (ADR-006 / issue #33).
@@ -39,12 +39,12 @@ astro-rvc-analyze = "astrocyte.rvc.analysis:main"
 agents = [    # LlamaIndex + Ollama (ADR-002 / ADR-004) — deliberately slim:
     # only core + the Ollama LLM binding, not the fat meta-package (CVE and
     # image-size surface, see ADR-010 delivery notes).
-    "llama-index-core>=0.12",
+    "llama-index-core>=0.14.24",
     "llama-index-llms-ollama>=0.5",
 ]
 rag = []      # ChromaDB + embedding pipeline (ADR-003) — Phase 2
 mcp = [       # FastMCP servers (ADR-007)
-    "fastmcp>=3.4.5",
+    "fastmcp>=3.4.7",
 ]
 rvc = [       # RV-C CAN bridge & decoder (ADR-012)
     "python-can>=4.4",
@@ -60,8 +60,8 @@ ha = [        # Home Assistant client + MCP server (ADR-011)
 
 [dependency-groups]
 dev = [
-    "ruff>=0.16.0",
-    "mypy>=2.3.0",
+    "ruff>=0.16.4",
+    "mypy>=2.3.1",
     "pytest>=8.3",
     "pytest-cov>=6.0",
     "httpx>=0.28",
@@ -70,7 +70,7 @@ dev = [
     # scaling regression.
     "jinja2>=3.1",
     "pip-audit>=2.7",
-    "pre-commit>=4.6.1",
+    "pre-commit>=4.6.2",
     "types-pyyaml>=6.0.12.20260724",
 ]
 
