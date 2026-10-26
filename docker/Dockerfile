@@ -5,7 +5,7 @@
 # Base image is Debian 12 (bookworm) slim, per ADR-001.
 
 # ---- Builder: resolve and install dependencies with uv --------------------
-FROM python:3.14-slim-bookworm AS builder
+FROM python:3.15-slim-bookworm AS builder
 
 # Pinned uv binary (kept current by Dependabot's docker ecosystem).
 COPY --from=ghcr.io/astral-sh/uv:0.11.19 /uv /uvx /bin/
@@ -32,7 +32,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --extra rvc --extra ha --extra mcp --extra agents
 
 # ---- Runtime: minimal image with just the venv ----------------------------
-FROM python:3.14-slim-bookworm AS runtime
+FROM python:3.15-slim-bookworm AS runtime
 
 RUN useradd --create-home --uid 1000 astrocyte
 WORKDIR /app
