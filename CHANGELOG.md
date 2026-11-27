@@ -9,6 +9,20 @@ Package versions are derived from `v*` git tags (see
 
 ## [Unreleased]
 
+### Security
+
+- **Web dependencies updated past six high-severity advisories** (vite, undici,
+  zod), which had begun failing the required `security` job on every pull
+  request. Lockfile only; the web UI's lint, type check, tests and build are
+  unchanged.
+
+### Fixed
+
+- **The vcan integration job no longer depends on the runner's kernel having a
+  published `linux-modules-extra` package.** It tries the module first and
+  installs the package only if the module is missing, and when neither works it
+  fails naming the kernel instead of with a bare apt error.
+
 ## [0.3.6] — 2026-07-28
 
 ### Security
