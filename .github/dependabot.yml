@@ -27,6 +27,13 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
 
+  # The front door's Caddy image: the two Caddy tags move together
+  - package-ecosystem: docker
+    directory: /docker/caddy
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
   # GitHub Actions
   - package-ecosystem: github-actions
     directory: /

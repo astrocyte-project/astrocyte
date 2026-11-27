@@ -13,7 +13,7 @@ env:
 
 jobs:
   release:
-    name: Build & push image, publish release
+    name: Build & push images, publish release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -52,6 +52,31 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # The front door's Caddy (ADR-015), published beside the API image as
+      # <repository>-caddy with the same tags. A package's first push to GHCR is
+      # PRIVATE: make it public in the org's package settings before any node
+      # that pulls anonymously is pointed at it.
+      - name: Derive Caddy image metadata
+        id: meta-caddy
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}-caddy
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+
+      - name: Build & push Caddy
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/caddy
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta-caddy.outputs.tags }}
+          labels: ${{ steps.meta-caddy.outputs.labels }}
+          cache-from: type=gha,scope=caddy-release
+          cache-to: type=gha,mode=max,scope=caddy-release
 
       # Release notes come from the CHANGELOG section for this tag (prose summary
       # + Added/Fixed/… entries), not the raw commit list.

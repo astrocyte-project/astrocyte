@@ -9,6 +9,9 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+        # Syntax only: Home Assistant's configuration uses its own tags
+        # (!include, !env_var), which a strict load rejects as unknown.
+        args: [--unsafe]
       - id: check-toml
       - id: check-merge-conflict
       - id: check-added-large-files

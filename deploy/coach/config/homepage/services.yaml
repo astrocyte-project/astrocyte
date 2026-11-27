@@ -1,9 +1,17 @@
-# Node service directory. hrefs are loopback (127.0.0.1) — reach them via SSH
-# tunnel until the tailnet lands (#90), at which point swap in the tailnet
-# hostname. Live widgets pull from the same loopback endpoints on the node.
+# The node's service directory — an example. A real deployment points
+# ASTROCYTE_PORTAL_CONFIG at its own five files, which can list everything it
+# self-hosts, on whichever machines.
+#
+# A link (`href`) is what a person's browser opens, so it has to be a name that
+# works from their machine: the front door's (`--profile proxy`), built here from
+# HOMEPAGE_VAR_DOMAIN. A tile for something the proxy does not publish carries no
+# link — it still shows the container's state.
+#
+# A widget `url` is different: Homepage fetches it itself, on the node, so those
+# stay on loopback.
 - Coach Core:
     - Home Assistant:
-        href: http://127.0.0.1:8123
+        href: https://ha.{{HOMEPAGE_VAR_DOMAIN}}
         description: Coach automation & telemetry hub
         icon: home-assistant
         server: my-docker
@@ -13,15 +21,14 @@
           url: http://127.0.0.1:8123
           key: "{{HOMEPAGE_VAR_HA_TOKEN}}"
     - Astrocyte API:
-        href: http://127.0.0.1:8000/health
-        description: aios API + HA MCP (ADR-014)
+        description: aios API + HA MCP — loopback/tailnet only (ADR-014)
         icon: si-fastapi
         server: my-docker
         container: astrocyte-coach-api-1
 
 - Observability:
     - Grafana:
-        href: http://127.0.0.1:3000
+        href: https://grafana.{{HOMEPAGE_VAR_DOMAIN}}
         description: Dashboards — energy & system health
         icon: grafana
         server: my-docker
@@ -32,16 +39,14 @@
           username: "{{HOMEPAGE_VAR_GRAFANA_USER}}"
           password: "{{HOMEPAGE_VAR_GRAFANA_PASSWORD}}"
     - VictoriaMetrics:
-        href: http://127.0.0.1:8428
-        description: Time-series database (metrics)
+        description: Time-series database — loopback only; read it in Grafana
         icon: si-victoriametrics
         server: my-docker
         container: astrocyte-coach-victoriametrics-1
 
 - Apps:
     - Nextcloud:
-        href: http://127.0.0.1:8082
-        description: Files (--profile apps)
+        description: Files (--profile apps) — not behind the proxy yet
         icon: nextcloud
         server: my-docker
         container: astrocyte-coach-nextcloud-1

@@ -9,6 +9,76 @@ Package versions are derived from `v*` git tags (see
 
 ## [Unreleased]
 
+### Added
+
+- **The coach node has a front door you can reach (`--profile proxy`, #91,
+  ADR-015).** The portal existed, but only on `127.0.0.1`, behind an SSH tunnel,
+  with links that pointed back at `127.0.0.1` and so worked on one machine.
+  Caddy now publishes the node's three human-facing pages over HTTPS: the portal
+  at `<domain>`, Grafana at `grafana.<domain>` and Home Assistant at
+  `ha.<domain>` (its `:8123` listener is unchanged). It is the only service in
+  the stack that listens beyond loopback, and each limit on it defaults to the
+  narrow side: it listens only on the addresses `ASTROCYTE_PROXY_BIND` names
+  (default loopback), answers only clients inside `ASTROCYTE_PROXY_ALLOW`
+  (everyone else gets 403, and an empty list refuses everyone rather than no
+  one), and refuses to start on a TLS mode it does not know. Two TLS modes:
+  Caddy's own CA, which needs nothing, and Let's Encrypt by DNS-01 through
+  Cloudflare, which is what makes a trusted certificate possible for a name that
+  resolves to a private address. The API and VictoriaMetrics are deliberately
+  not published. Runbook §8 has the steps, including the one host setting a
+  late-appearing listen address needs.
+- **A Caddy image with the Cloudflare DNS module**, built for amd64 and arm64,
+  scanned in CI and published by the release workflow as
+  `ghcr.io/astrocyte-project/astrocyte-caddy`. Stock Caddy carries no DNS
+  provider modules.
+- **CI validates the coach compose file for every profile**, with only the
+  variables the default profile requires. Compose interpolates every service
+  whatever profile is active, so a hard guard on one profile's variable breaks
+  all the others; this is the check that would have caught it the first time.
+
+### Changed
+
+- **The portal's content comes from the deployment.** Its five config files
+  mount from `ASTROCYTE_PORTAL_CONFIG`, the way the Home Assistant files already
+  do, so a site's page can list everything it runs without that list entering
+  this repository. The shipped page is now an example: its links follow the
+  proxy's domain, and tiles for things the proxy does not publish carry no link.
+- **Homepage 1.6.0 → 2.8.0.** Two upstream changes matter here and are now
+  pinned by tests: the image no longer carries a health check, so compose
+  defines one (a container with no health state passes any check for "nothing
+  unhealthy"), and an unset `HOSTNAME` now binds every interface, which makes
+  the existing `HOSTNAME=127.0.0.1` load-bearing.
+- **Homepage answers only for the proxy's domain.** `HOMEPAGE_ALLOWED_HOSTS` was
+  `*`, which it could afford only while nothing could reach it.
+- **Grafana's public address is configurable** (`GRAFANA_ROOT_URL`); the default
+  is Grafana's own.
+
+### Security
+
+- **Homepage no longer runs as root (#73).** It runs as the image's `node` user
+  with a tmpfs for the scratch files it insists on writing, and the five managed
+  files mounted read-only on top.
+- **Homepage no longer holds the Docker socket.** The mount was read-only, which
+  protects the socket file, not the API behind it: anything that could make
+  Homepage issue Docker API calls had root on the node. A socket proxy on
+  loopback now answers container reads and refuses everything else, and is the
+  only container that mounts the socket. Tolerable while the page was
+  loopback-only; not once other machines can reach it.
+- **Caddy runs with a single capability** (`NET_BIND_SERVICE`) and
+  `no-new-privileges`.
+
+### Fixed
+
+- **`.env.example` named an image tag that does not exist.**
+  `ghcr.io/astrocyte-project/astrocyte:0.3.0` was never published under this
+  organisation (0.3.6 is the first), so a node set up from the example could not
+  pull. It names 0.3.6.
+- **The example portal carried a deployment's hostname** in its title and
+  greeting.
+- **`pre-commit run --all-files` failed on Home Assistant's configuration.** The
+  YAML check loaded files strictly and rejected Home Assistant's own tags
+  (`!include`, `!env_var`); it now checks syntax only.
+
 ## [0.3.6] — 2026-07-28
 
 ### Security

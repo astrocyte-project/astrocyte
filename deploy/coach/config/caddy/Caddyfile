@@ -1,0 +1,64 @@
+# The node's front door (ADR-015, `--profile proxy`).
+#
+# Everything that names a deployment comes from the environment; compose supplies
+# the defaults (see .env.example):
+#
+#   ASTROCYTE_PROXY_DOMAIN     the portal's name; a service is <service>.<domain>
+#   ASTROCYTE_PROXY_BIND       addresses to listen on
+#   ASTROCYTE_PROXY_ALLOW      client ranges that get an answer; everyone else: 403
+#   ASTROCYTE_PROXY_TLS        internal | cloudflare
+#   ASTROCYTE_PROXY_ACME_CA    the ACME directory (cloudflare mode)
+#   ASTROCYTE_PROXY_DNS_TOKEN  the DNS provider token (cloudflare mode)
+{
+	admin 127.0.0.1:2019
+
+	# The fallback is loopback, never every interface: a Caddy started without
+	# its environment must not publish anything.
+	default_bind {$ASTROCYTE_PROXY_BIND:127.0.0.1}
+
+	acme_ca {$ASTROCYTE_PROXY_ACME_CA:https://acme-v02.api.letsencrypt.org/directory}
+}
+
+# One snippet per TLS mode, picked by name below. A mode that is not one of
+# these is not a snippet, so Caddy refuses to start ("File to import not found")
+# and never falls back to another mode silently.
+(tls_internal) {
+	tls internal
+}
+
+(tls_cloudflare) {
+	tls {
+		dns cloudflare {env.ASTROCYTE_PROXY_DNS_TOKEN}
+		# Ask a public resolver whether the challenge record is visible. A node
+		# whose own resolver answers this domain locally would otherwise wait on
+		# a record it can never see.
+		resolvers 1.1.1.1
+	}
+}
+
+{$ASTROCYTE_PROXY_DOMAIN:localhost}, *.{$ASTROCYTE_PROXY_DOMAIN:localhost} {
+	import tls_{$ASTROCYTE_PROXY_TLS:internal}
+
+	# `route` keeps the order below literally. Outside it Caddy sorts directives
+	# itself, `handle` ahead of `respond`, and the guard would stop being first.
+	route {
+		# No fallback list on purpose: with nothing set this matches every client
+		# and the front door answers 403 to all of them. It fails closed.
+		@outside not remote_ip {$ASTROCYTE_PROXY_ALLOW}
+		respond @outside 403
+
+		@portal host {$ASTROCYTE_PROXY_DOMAIN:localhost}
+		reverse_proxy @portal 127.0.0.1:3001
+
+		@grafana host grafana.{$ASTROCYTE_PROXY_DOMAIN:localhost}
+		reverse_proxy @grafana 127.0.0.1:3000
+
+		@ha host ha.{$ASTROCYTE_PROXY_DOMAIN:localhost}
+		reverse_proxy @ha 127.0.0.1:8123
+
+		# A deployment's own sites (see sites.d/README.md).
+		import /etc/caddy/sites.d/*.caddy
+
+		respond 404
+	}
+}

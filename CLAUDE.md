@@ -84,7 +84,7 @@ Run the CLI: `uv run aios --version`.
 
 - **ADRs** (`docs/adr/`) are the decision-record format for significant
   architectural changes. Copy `docs/adr/template.md`, use the next free number
-  (**check the directory** — currently the next free is ADR-015), and land the
+  (**check the directory** — currently the next free is ADR-016), and land the
   ADR **inside the implementation PR** that realizes it (repo precedent).
   *Amend* an accepted ADR (as ADR-012 was) rather than rewriting it.
 - **Project management** ([ADR-009](docs/adr/ADR-009-project-management.md),

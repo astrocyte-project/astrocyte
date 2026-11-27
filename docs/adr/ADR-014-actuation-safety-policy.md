@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (amended 2026-07-27 — see [Amendments](#amendments))
+Accepted (amended 2026-07-27 and 2026-11-27 — see [Amendments](#amendments))
 
 ## Context
 
@@ -172,6 +172,29 @@ Note also that enabling TX requires **two** independent gates, not one: this
 setting, and the host's `can0` unit, which brings the interface up with
 `listen-only on` at the driver level. Flipping only the application setting
 transmits nothing.
+
+### 2026-11-27 — three pages leave loopback; the actuation surface does not
+
+*Interim API exposure* above was written while the node had no authenticated
+path in, and in practice it became "everything binds loopback and is reached by
+SSH tunnel". [ADR-015](ADR-015-ingress-and-tls.md) ends that for the pages meant
+for people, and only for them.
+
+**What changes:** Caddy (`--profile proxy`) publishes the portal, Grafana and
+Home Assistant over HTTPS, on the addresses the deployment names and for the
+client ranges it allows. Home Assistant trusts the proxy on loopback
+(`http.trusted_proxies`); its own `:8123` listener is untouched.
+
+**What does not:** the API, `/mcp/ha` and `/v1/approvals` are not behind the
+proxy and keep the posture this ADR gave them — bound to the tailnet address or
+loopback, never `0.0.0.0`, bearer token required. The actuation surface is still
+unreachable unauthenticated, from the coach LAN included. Moving it behind the
+proxy with real authentication is #16.
+
+The reasoning that kept *everything* on loopback was that nothing in front of
+these services could tell a trusted client from a guest. The front door can: it
+binds named addresses, refuses clients outside an allow list before consulting
+any upstream, and fails closed when that list is empty.
 
 ## Related Decisions
 

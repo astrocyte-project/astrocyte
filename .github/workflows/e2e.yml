@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   coach-sim:
-    name: Coach stack (sim profile)
+    name: Coach stack (sim profile + front door)
     runs-on: ubuntu-latest
     env:
       POSTGRES_PASSWORD: e2e-only-password
@@ -35,9 +35,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Start the coach stack (sim profile)
+      # The front door rides along (#91): with no .env it is the default
+      # deployment — domain `localhost`, Caddy's internal CA, loopback only.
+      - name: Start the coach stack (sim, proxy and portal profiles)
         working-directory: deploy/coach
-        run: docker compose --profile sim up -d --build --quiet-pull
+        run: >-
+          docker compose --profile sim --profile proxy --profile portal
+          up -d --build --quiet-pull
 
       - name: Wait for Mosquitto + Postgres health
         working-directory: deploy/coach
@@ -83,12 +87,19 @@ jobs:
             -H 'Authorization: Bearer e2e-only-token' http://127.0.0.1:8000/mcp/ha/)
           test "$code" != "404"
 
+      - name: Assert the front door (proxy, portal, socket proxy)
+        run: deploy/coach/e2e/assert_front_door.sh
+
       - name: Logs on failure
         if: failure()
         working-directory: deploy/coach
-        run: docker compose logs --tail 100
+        run: >-
+          docker compose --profile sim --profile proxy --profile portal
+          logs --tail 100
 
       - name: Tear down
         if: always()
         working-directory: deploy/coach
-        run: docker compose --profile sim down -v
+        run: >-
+          docker compose --profile sim --profile proxy --profile portal
+          down -v
