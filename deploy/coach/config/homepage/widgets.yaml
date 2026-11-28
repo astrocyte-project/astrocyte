@@ -1,6 +1,6 @@
 - greeting:
     text_size: xl
-    text: "Luna · Astrocyte Coach Node"
+    text: "Astrocyte Coach Node"
 - datetime:
     text_size: l
     format:

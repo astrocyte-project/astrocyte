@@ -1,3 +1,5 @@
-# Live container status/stats via the read-only Docker socket mount.
+# Container status and stats through the socket proxy on loopback (compose:
+# `socket-proxy`). Homepage itself holds no Docker socket.
 my-docker:
-  socket: /var/run/docker.sock
+  host: 127.0.0.1
+  port: 2375

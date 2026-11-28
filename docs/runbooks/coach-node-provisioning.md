@@ -191,7 +191,9 @@ uv run aios rv status   # or: docker compose exec api aios rv status
 ```
 
 Optional profiles: `--profile apps` (NextCloud), `--profile local-llm`
-(small Ollama — watch memory; 8 GB is tight with everything resident).
+(small Ollama — watch memory; 8 GB is tight with everything resident),
+`--profile observability` (VictoriaMetrics + Grafana), and the front door,
+`--profile proxy --profile portal` (§8).
 
 ## 7. WAN gateway quality poller (systemd user timer)
 
@@ -231,3 +233,131 @@ Two deployment traps: VictoriaMetrics reloads `scrape.yml` only on
 **restart**, not `SIGHUP`; and after any upstream change on the WAN2 device,
 restart dpinger on the router (`pluginctl -s dpinger restart`) or its pinned
 ICMP flow can report a working path as 100 % loss.
+
+## 8. The front door (optional: `--profile proxy --profile portal`)
+
+One name for the node's pages, over HTTPS, from every trusted machine and over
+the tailnet — no SSH tunnel. Decision and reasoning:
+[ADR-015](../adr/ADR-015-ingress-and-tls.md).
+
+| Name | Page |
+|------|------|
+| `<domain>` | the portal (Homepage) |
+| `grafana.<domain>` | Grafana (needs `--profile observability`) |
+| `ha.<domain>` | Home Assistant (`:8123` keeps working as before) |
+
+The API and VictoriaMetrics are **not** published, on purpose.
+
+### 8.1 Try it on the node first
+
+With nothing set in `.env` the front door is on `https://localhost`, for this
+node alone, under Caddy's own certificate authority:
+
+```bash
+docker compose --profile proxy --profile portal up -d
+curl -k https://localhost/ -o /dev/null -w '%{http_code}\n'   # 200
+```
+
+### 8.2 Choose the name and where it resolves
+
+Pick a domain you control, say `portal.example.com`. Clients must resolve it,
+and every name under it, to an address of this node:
+
+- **On the tailnet:** a public DNS record for `portal.example.com` and
+  `*.portal.example.com` pointing at the node's tailnet address
+  (`tailscale ip -4`). The address is private, so the record leaks nothing
+  reachable, and it works wherever the tailnet does.
+- **On the LAN:** have the LAN's own resolver answer the same two names with the
+  node's LAN address, so local clients do not depend on the tailnet.
+
+DNS-only records: do not route them through a CDN proxy.
+
+### 8.3 Choose the certificate mode
+
+- **`internal`** — no account, no token. Every client has to trust Caddy's root:
+
+  ```bash
+  docker compose exec caddy cat /data/caddy/pki/authorities/local/root.crt
+  ```
+
+- **`cloudflare`** — Let's Encrypt by DNS-01, a certificate clients already
+  trust. Create an API token limited to **Zone → Zone → Read** and
+  **Zone → DNS → Edit** on that one zone, used for nothing else. Rehearse
+  against staging first (`ASTROCYTE_PROXY_ACME_CA`, see `.env.example`): you
+  should see `certificate obtained successfully` twice in `docker compose logs
+  caddy`, once for the name and once for the wildcard. Then remove the staging
+  line and `docker compose --profile proxy up -d` again.
+
+  Cloudflare cannot limit a token to one record, so this token can edit the
+  whole zone. If that is too much, point `_acme-challenge.<domain>` at a
+  throwaway zone with a CNAME and scope the token to that zone.
+
+### 8.4 Fill in `.env`
+
+```bash
+ASTROCYTE_PROXY_DOMAIN=portal.example.com
+ASTROCYTE_PROXY_BIND="192.0.2.10 100.64.0.10"     # LAN address, tailnet address
+ASTROCYTE_PROXY_ALLOW="192.0.2.0/24 100.64.0.0/10"
+ASTROCYTE_PROXY_TLS=cloudflare
+ASTROCYTE_PROXY_DNS_TOKEN=...
+ASTROCYTE_CADDY_IMAGE=ghcr.io/astrocyte-project/astrocyte-caddy:<release>
+GRAFANA_ROOT_URL=https://grafana.portal.example.com/
+```
+
+- **`ASTROCYTE_PROXY_BIND` is never `0.0.0.0`.** Name the addresses. Leave the
+  management network's address out unless you mean to publish there.
+- **`ASTROCYTE_PROXY_ALLOW`** is the second lock: a client outside it gets 403
+  even if a firewall rule is later loosened. Unset, it is every private, tailnet
+  and unique-local range; narrowing it to your own is better.
+
+### 8.5 ⚠️ A listen address that comes up late
+
+**If any address in `ASTROCYTE_PROXY_BIND` is absent when Caddy starts, Caddy
+does not start at all** — not on that address, and not on the others. A tailnet
+address is absent for the first seconds of every boot, and for good if the
+tailnet is ever down. Without the setting below, the tailnet being down takes
+the LAN side of the front door down with it.
+
+Allow binding an address before it exists:
+
+```bash
+echo 'net.ipv4.ip_nonlocal_bind = 1' | sudo tee /etc/sysctl.d/90-astrocyte-proxy.conf
+sudo sysctl --system
+```
+
+Caddy then starts regardless, serves each address as soon as it appears, and
+keeps serving the others when one goes away. This is a host setting: compose
+cannot apply it to a host-networked container.
+
+### 8.6 Start and verify
+
+```bash
+docker compose --profile observability --profile proxy --profile portal up -d
+
+curl -s -o /dev/null -w '%{http_code}\n' https://portal.example.com/          # 200
+curl -s -o /dev/null -w '%{http_code}\n' https://grafana.portal.example.com/  # 200 or 302
+curl -s -o /dev/null -w '%{http_code}\n' https://ha.portal.example.com/       # 200
+```
+
+Then check what must **not** answer:
+
+- from a machine outside `ASTROCYTE_PROXY_ALLOW` (a guest network): 403, or no
+  connection at all if the firewall is already in the way;
+- `curl -k https://<node address>/` by address: a TLS error, no site;
+- `curl -s -o /dev/null -w '%{http_code}' -X POST
+  http://127.0.0.1:2375/containers/x/stop` on the node: 403 — the socket proxy
+  answers container reads and nothing else.
+
+### 8.7 Make the portal yours
+
+The shipped page describes one node. Yours can list everything the site runs:
+put the five files (`bookmarks.yaml`, `docker.yaml`, `services.yaml`,
+`settings.yaml`, `widgets.yaml`) with the rest of your site's configuration and
+set `ASTROCYTE_PORTAL_CONFIG` to that directory. Do not edit the copies in this
+checkout — the node's tree should stay clean, so that `git status` there means
+something.
+
+A link on the page is opened by someone's browser on another machine, so it has
+to be a name that machine resolves: never `127.0.0.1`. To publish another page
+of this node, add a site file (`config/caddy/sites.d/README.md`) through
+`ASTROCYTE_PROXY_SITES`. The wildcard certificate already covers the name.

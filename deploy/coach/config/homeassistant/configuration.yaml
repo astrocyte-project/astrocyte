@@ -22,6 +22,14 @@ http:
   # HA runs with host networking; the tailnet + localhost are the only
   # intended clients. Keep the coach LAN out per ADR-014's interim posture.
   server_host: 0.0.0.0
+  # The front-door proxy (`--profile proxy`, ADR-015) runs on this host and
+  # reaches HA over loopback. Without these two settings HA answers a proxied
+  # request with 400. They only add: :8123 behaves exactly as before, and a
+  # deployment that never starts the proxy is unaffected.
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 127.0.0.1
+    - ::1
 
 recorder:
   # Shared coach Postgres, not SQLite-on-SD (ADR-012). The URL is injected by

@@ -14,9 +14,12 @@
 #   sim         fixture replayer over a udp_multicast python-can bus — no CAN
 #               hardware needed (CI e2e / bench testing)
 #   observability  VictoriaMetrics + cAdvisor + node-exporter + Grafana (#33).
-#               All bind 127.0.0.1 only — nothing new on the coach LAN
-#               (ADR-014); reach Grafana via SSH tunnel until the tailnet lands.
-#   portal      Homepage — the node's front-door link aggregator (127.0.0.1).
+#               All bind 127.0.0.1 only; Grafana is reached through the proxy.
+#   portal      Homepage — the front-door link aggregator — and the socket
+#               proxy its container tiles read through. Both on 127.0.0.1.
+#   proxy       Caddy (ADR-015): HTTPS for the portal, Grafana and Home
+#               Assistant, on the addresses and for the client ranges .env
+#               names. The only service here that listens beyond loopback.
 #
 # Bind mounts carry :z for SELinux hosts (harmless on Pi OS/Debian).
 # See docs/runbooks/coach-node-provisioning.md for bring-up.
@@ -185,7 +188,8 @@ services:
   # Prometheus on an 8 GB Pi, Prom-compatible, long retention. It scrapes
   # itself + HA's /api/prometheus exporter + the API's /metrics + cAdvisor +
   # node-exporter. Everything here binds 127.0.0.1 (host network) so nothing is
-  # exposed on the coach LAN; reach Grafana via `ssh -L 3000:127.0.0.1:3000`.
+  # exposed on the coach LAN; Grafana is published by the proxy (`--profile
+  # proxy`) as grafana.<domain>, and VictoriaMetrics deliberately is not.
   victoriametrics:
     profiles: ["observability"]
     image: victoriametrics/victoria-metrics:v1.111.0
@@ -304,6 +308,9 @@ services:
     environment:
       GF_SERVER_HTTP_ADDR: 127.0.0.1
       GF_SERVER_HTTP_PORT: "3000"
+      # Where people reach Grafana. Behind the proxy that is
+      # https://grafana.<domain>/; the default is Grafana's own.
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3000/}
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
       # Soft default (not :?): compose interpolates ALL services regardless of
       # the active profile, so a hard guard here would break `--profile sim`
@@ -317,38 +324,133 @@ services:
       - ./config/grafana/provisioning:/etc/grafana/provisioning:z
       - ./config/grafana/dashboards:/var/lib/grafana/dashboards:z
 
-  # --- Portal (node front door) ---------------------------------------------
+  # --- Front door (ADR-015, #91) --------------------------------------------
+  # Three services across two profiles. `portal` is the page: Homepage, on
+  # loopback, with a socket proxy for its container tiles. `proxy` is the way
+  # in: Caddy, the only thing here that listens beyond loopback, and only on the
+  # addresses and for the client ranges the deployment names.
+
+  # The Docker API for Homepage's container tiles, cut down to reading the
+  # container list. Homepage used to mount the socket itself, read-only — but a
+  # read-only mount protects the socket file, not the API behind it, and anything
+  # that can make Homepage issue API calls then has root on the node. This proxy
+  # answers container reads and refuses everything else (POST, exec, images,
+  # system info), and it is the only container that holds the socket.
+  #
+  # Pinned by digest: the project stopped publishing version tags (only `3.4`,
+  # `lts` and `latest`, rebuilt weekly), so a tag alone would move under us.
+  socket-proxy:
+    profiles: ["portal"]
+    image: ghcr.io/tecnativa/docker-socket-proxy:3.4@sha256:027f9fa5ee70be5836eeaa10ce889d7a83f34a8db16a7f412818b92997e0beab
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:2375:2375"
+    environment:
+      CONTAINERS: "1"
+      POST: "0"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
   # Homepage: declarative YAML link aggregator with live HA/Grafana/Docker
-  # widgets. Binds 127.0.0.1:3001; the Docker widget reads the socket read-only.
+  # widgets. Binds 127.0.0.1:3001; Caddy is the only way to it from elsewhere.
   homepage:
     profiles: ["portal"]
-    image: ghcr.io/gethomepage/homepage:v1.6.0
+    image: ghcr.io/gethomepage/homepage:v2.8.0
     restart: unless-stopped
     network_mode: host
+    # Not root (#73). The image's own `node` user; /app/config is a tmpfs (below)
+    # because Homepage insists on a writable config directory.
+    user: "1000:1000"
+    depends_on:
+      - socket-proxy
     environment:
-      HOMEPAGE_ALLOWED_HOSTS: "*"   # loopback-only bind; CSRF host check moot
+      # Homepage answers only for the host names listed here (and for loopback,
+      # always). The proxy passes the name it was asked for, so this is the
+      # proxy's domain — not `*`, which it could afford only while loopback-bound.
+      HOMEPAGE_ALLOWED_HOSTS: ${ASTROCYTE_PROXY_DOMAIN:-localhost}
       PORT: "3001"
+      # Load-bearing: Homepage binds whatever HOSTNAME says, and since 2.0 an
+      # unset HOSTNAME means every interface.
       HOSTNAME: 127.0.0.1
+      # The shipped example builds its links from this (services.yaml).
+      HOMEPAGE_VAR_DOMAIN: ${ASTROCYTE_PROXY_DOMAIN:-localhost}
       # Secrets for live widgets — injected, never committed to the YAML config.
       HOMEPAGE_VAR_HA_TOKEN: ${ASTROCYTE_HA_TOKEN:?set in .env}
       HOMEPAGE_VAR_GRAFANA_USER: ${GRAFANA_USER:-admin}
       HOMEPAGE_VAR_GRAFANA_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    tmpfs:
+      # Homepage creates whatever config files it does not find (kubernetes.yaml,
+      # proxmox.yaml, custom.css/js) plus a logs/ directory on every start. They
+      # are scratch: regenerated each time, read back by nothing. A tmpfs gives
+      # the non-root user somewhere to put them and keeps them out of the deploy
+      # tree, which must stay clean for `git status` to be a drift signal (#68).
+      - /app/config:rw,mode=1777
     volumes:
-      # Mounted FILE-BY-FILE and read-only, not as a directory. Homepage creates
-      # whatever config files it does not find (kubernetes.yaml, proxmox.yaml,
-      # custom.css/js) plus a logs/ directory, as root, on first start. With the
-      # directory bind-mounted those writes land in the deploy tree — so a git
-      # checkout there is permanently dirty and partly not owned by the deploying
-      # user, which rules out using `git status` as the drift signal
-      # (jomkz/infra#11). Mounting only the files we manage sends those writes to
-      # the container's own filesystem instead, where they belong: they are
-      # regenerated on every start and nothing reads them back.
-      - ./config/homepage/bookmarks.yaml:/app/config/bookmarks.yaml:ro,z
-      - ./config/homepage/docker.yaml:/app/config/docker.yaml:ro,z
-      - ./config/homepage/services.yaml:/app/config/services.yaml:ro,z
-      - ./config/homepage/settings.yaml:/app/config/settings.yaml:ro,z
-      - ./config/homepage/widgets.yaml:/app/config/widgets.yaml:ro,z
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # The five files we manage, mounted one by one and read-only on top of the
+      # tmpfs. They come from the deployment: the page describes what one site
+      # runs, which is that site's data, so ASTROCYTE_PORTAL_CONFIG points at a
+      # directory in its own configuration. The default is this repo's example.
+      - ${ASTROCYTE_PORTAL_CONFIG:-./config/homepage}/bookmarks.yaml:/app/config/bookmarks.yaml:ro,z
+      - ${ASTROCYTE_PORTAL_CONFIG:-./config/homepage}/docker.yaml:/app/config/docker.yaml:ro,z
+      - ${ASTROCYTE_PORTAL_CONFIG:-./config/homepage}/services.yaml:/app/config/services.yaml:ro,z
+      - ${ASTROCYTE_PORTAL_CONFIG:-./config/homepage}/settings.yaml:/app/config/settings.yaml:ro,z
+      - ${ASTROCYTE_PORTAL_CONFIG:-./config/homepage}/widgets.yaml:/app/config/widgets.yaml:ro,z
+    # Defined here because the image stopped carrying one (1.6.0 had it, 2.x does
+    # not). Without it this container has no health state at all, and a check
+    # for "nothing unhealthy" passes over a dead Homepage.
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3001/api/healthcheck || exit 1"]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 3
+
+  # Caddy: TLS and the names. `<domain>` is the portal; `grafana.<domain>` and
+  # `ha.<domain>` are the two other pages on this node meant for people. The API
+  # and VictoriaMetrics are deliberately not here (ADR-015).
+  #
+  # Every variable has a soft default (never `${VAR:?}`): compose interpolates
+  # all services whatever profile is active, so a hard guard on a variable only
+  # this profile needs would break every other profile, the CI e2e included.
+  caddy:
+    profiles: ["proxy"]
+    image: ${ASTROCYTE_CADDY_IMAGE:-ghcr.io/astrocyte-project/astrocyte-caddy:dev}
+    build:
+      context: ../../docker/caddy
+    restart: unless-stopped
+    network_mode: host
+    # Root inside the container, but holding one capability: binding :80/:443.
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      ASTROCYTE_PROXY_DOMAIN: ${ASTROCYTE_PROXY_DOMAIN:-localhost}
+      # Loopback unless told otherwise — never every interface by default. A
+      # listen address that is absent when Caddy starts stops it altogether, on
+      # every address; see the runbook before naming one that comes up late.
+      ASTROCYTE_PROXY_BIND: ${ASTROCYTE_PROXY_BIND:-127.0.0.1}
+      # Clients that get an answer; the rest get 403. Unset or empty means these
+      # private, CGNAT (tailnet) and unique-local ranges — never "everyone".
+      ASTROCYTE_PROXY_ALLOW: "${ASTROCYTE_PROXY_ALLOW:-127.0.0.0/8 ::1/128 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10 fc00::/7}"
+      ASTROCYTE_PROXY_TLS: ${ASTROCYTE_PROXY_TLS:-internal}
+      ASTROCYTE_PROXY_ACME_CA: ${ASTROCYTE_PROXY_ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
+      ASTROCYTE_PROXY_DNS_TOKEN: ${ASTROCYTE_PROXY_DNS_TOKEN:-}
+    volumes:
+      - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro,z
+      - ${ASTROCYTE_PROXY_SITES:-./config/caddy/sites.d}:/etc/caddy/sites.d:ro,z
+      # Certificates and the ACME account. Losing this volume costs a re-issue,
+      # nothing else — but an internal-mode CA changes with it, so clients that
+      # trusted the old root must trust the new one.
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 volumes:
   mosquitto_data:
@@ -360,3 +462,5 @@ volumes:
   vm_data:
   vmagent_data:
   grafana_data:
+  caddy_data:
+  caddy_config:

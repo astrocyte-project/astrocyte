@@ -58,6 +58,7 @@ All ADRs must be reviewed and approved by the core development team before being
 | [ADR-012](ADR-012-rvc-telemetry-architecture.md) | RV-C Telemetry Architecture | Accepted | 2026-07-02 |
 | [ADR-013](ADR-013-multi-node-topology.md) | Multi-Node Topology and Model Routing | Accepted | 2026-07-02 |
 | [ADR-014](ADR-014-actuation-safety-policy.md) | Agent Actuation Safety Policy | Accepted | 2026-07-02 |
+| [ADR-015](ADR-015-ingress-and-tls.md) | Ingress and TLS — the Caddy Front Door | Accepted | 2026-11-27 |
 
 ## Contributing
 

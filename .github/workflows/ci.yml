@@ -134,6 +134,47 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # --- Front door (#91, ADR-015) ------------------------------------------
+      - name: Build Caddy image
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/caddy
+          push: false
+          load: true
+          tags: astrocyte-caddy:ci
+          cache-from: type=gha,scope=caddy
+          cache-to: type=gha,mode=max,scope=caddy
+      - name: Front door static checks (DNS module, Caddyfile modes and refusals)
+        run: deploy/coach/e2e/check_front_door_static.sh astrocyte-caddy:ci
+      # Compose interpolates every service whatever profile is active, so a hard
+      # ${VAR:?} guard on a variable one profile needs breaks all the others.
+      # Only what the default profile has always required is set here.
+      - name: Coach compose file is valid for every profile
+        working-directory: deploy/coach
+        env:
+          POSTGRES_PASSWORD: ci-only
+          ASTROCYTE_API_TOKEN: ci-only
+          ASTROCYTE_HA_TOKEN: ci-only
+        run: |
+          for profile in "" local-llm apps sim observability portal proxy; do
+            echo "profile: ${profile:-(default)}"
+            docker compose ${profile:+--profile "$profile"} config --quiet
+          done
+          echo "profile: all of them"
+          docker compose --profile local-llm --profile apps --profile sim \
+            --profile observability --profile portal --profile proxy config --quiet
+      # The final stage only copies the cross-compiled binary, so this needs no
+      # emulation — it proves the arm64 base image and the cross-build exist.
+      - name: Build Caddy arm64 canary
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/caddy
+          platforms: linux/arm64
+          push: false
+          cache-from: type=gha,scope=caddy-arm64
+          cache-to: type=gha,mode=max,scope=caddy-arm64
+
   security:
     name: Security scan
     runs-on: ubuntu-latest
@@ -168,6 +209,22 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: astrocyte:scan
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+      - name: Build Caddy image for scanning
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/caddy
+          push: false
+          load: true
+          tags: astrocyte-caddy:scan
+          cache-from: type=gha,scope=caddy
+      - name: Scan Caddy image with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: astrocyte-caddy:scan
           format: table
           exit-code: "1"
           severity: CRITICAL,HIGH
