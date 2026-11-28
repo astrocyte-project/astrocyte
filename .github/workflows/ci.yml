@@ -57,11 +57,21 @@ jobs:
           enable-cache: true
           python-version: "3.12"
       - run: uv sync --frozen --all-extras
+      # vcan ships in linux-modules-extra on Ubuntu's cloud kernels, but the
+      # hosted runners sometimes boot a kernel before its modules-extra package
+      # reaches the archive (2026-11: 7.0.0-1020-azure). Try the module first,
+      # install the package only if it is missing, and fail with the kernel
+      # named rather than a bare apt error. Never skip: these tests are required.
       - name: Set up vcan0
         run: |
-          sudo apt-get update
-          sudo apt-get install -y "linux-modules-extra-$(uname -r)"
-          sudo modprobe vcan
+          if ! sudo modprobe vcan 2>/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y "linux-modules-extra-$(uname -r)" || {
+              echo "::error::no vcan module for kernel $(uname -r), and no linux-modules-extra package for it yet"
+              exit 1
+            }
+            sudo modprobe vcan
+          fi
           sudo ip link add dev vcan0 type vcan
           sudo ip link set up vcan0
       # `services:` can't override the container command, and mosquitto 2.x's
