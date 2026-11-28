@@ -5,7 +5,7 @@
     <title>Coverage for src/astrocyte/rvc/__main__.py: 0%</title>
     <link rel="icon" sizes="32x32" href="favicon_32_cb_c827f16f.png">
     <link rel="stylesheet" href="style_cb_4667309f.css" type="text/css">
-    <script src="coverage_html_cb_dd2e7eb5.js" defer></script>
+    <script src="coverage_html_cb_54cfdca1.js" defer></script>
 </head>
 <body class="pyfile">
 <header>
@@ -66,8 +66,8 @@
             <a id="indexLink" class="nav" href="index.html">&Hat; index</a> &nbsp; &nbsp;
             <a id="nextFileLink" class="nav" href="z_6bc81d4eb3c6d5a4_analysis_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
-            <a class="nav" href="https://coverage.readthedocs.io/en/7.15.2">coverage.py v7.15.2</a>,
-            created at 2026-07-28 20:01 +0000
+            <a class="nav" href="https://coverage.readthedocs.io/en/7.17.5">coverage.py v7.17.5</a>,
+            created at 2026-11-28 00:14 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -82,7 +82,7 @@
     </div>
 </header>
 <main id="source">
-    <p class="pln"><span class="n"><a id="t1" href="#t1">1</a></span><span class="t"><span class="str">"""Console entry point: ``astro-rvc-bridge`` / ``python -m astrocyte.rvc``."""</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t1" href="#t1">1</a></span><span class="t"><span class="str">&quot;&quot;&quot;Console entry point: ``astro-rvc-bridge`` / ``python -m astrocyte.rvc``.&quot;&quot;&quot;</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t2" href="#t2">2</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t3" href="#t3">3</a></span><span class="t"><span class="key">import</span> <span class="nam">argparse</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t4" href="#t4">4</a></span><span class="t"><span class="key">import</span> <span class="nam">asyncio</span>&nbsp;</span><span class="r"></span></p>
@@ -92,44 +92,44 @@
     <p class="mis show_mis"><span class="n"><a id="t8" href="#t8">8</a></span><span class="t"><span class="key">from</span> <span class="nam">astrocyte</span><span class="op">.</span><span class="nam">rvc</span><span class="op">.</span><span class="nam">bridge</span> <span class="key">import</span> <span class="nam">BridgeSettings</span><span class="op">,</span> <span class="nam">RvcBridge</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t9" href="#t9">9</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t10" href="#t10">10</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t11" href="#t11">11</a></span><span class="t"><span class="key">def</span> <span class="nam">_parse_args</span><span class="op">(</span><span class="nam">argv</span><span class="op">:</span> <span class="nam">list</span><span class="op">[</span><span class="nam">str</span><span class="op">]</span> <span class="op">|</span> <span class="key">None</span> <span class="op">=</span> <span class="key">None</span><span class="op">)</span> <span class="op">-></span> <span class="nam">argparse</span><span class="op">.</span><span class="nam">Namespace</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t11" href="#t11">11</a></span><span class="t"><span class="key">def</span> <span class="nam">_parse_args</span><span class="op">(</span><span class="nam">argv</span><span class="op">:</span> <span class="nam">list</span><span class="op">[</span><span class="nam">str</span><span class="op">]</span> <span class="op">|</span> <span class="key">None</span> <span class="op">=</span> <span class="key">None</span><span class="op">)</span> <span class="op">-&gt;</span> <span class="nam">argparse</span><span class="op">.</span><span class="nam">Namespace</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t12" href="#t12">12</a></span><span class="t">    <span class="nam">parser</span> <span class="op">=</span> <span class="nam">argparse</span><span class="op">.</span><span class="nam">ArgumentParser</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis mis2 show_mis"><span class="n"><a id="t13" href="#t13">13</a></span><span class="t">        <span class="nam">prog</span><span class="op">=</span><span class="str">"astro-rvc-bridge"</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis mis2 show_mis"><span class="n"><a id="t13" href="#t13">13</a></span><span class="t">        <span class="nam">prog</span><span class="op">=</span><span class="str">&quot;astro-rvc-bridge&quot;</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis mis2 show_mis"><span class="n"><a id="t14" href="#t14">14</a></span><span class="t">        <span class="nam">description</span><span class="op">=</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis mis2 show_mis"><span class="n"><a id="t15" href="#t15">15</a></span><span class="t">            <span class="str">"RV-C SocketCAN &lt;-> MQTT bridge (configured via ASTROCYTE_ env vars)."</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis mis2 show_mis"><span class="n"><a id="t15" href="#t15">15</a></span><span class="t">            <span class="str">&quot;RV-C SocketCAN &lt;-&gt; MQTT bridge (configured via ASTROCYTE_ env vars).&quot;</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis mis2 show_mis"><span class="n"><a id="t16" href="#t16">16</a></span><span class="t">        <span class="op">)</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis mis2 show_mis"><span class="n"><a id="t17" href="#t17">17</a></span><span class="t">    <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t18" href="#t18">18</a></span><span class="t">    <span class="nam">parser</span><span class="op">.</span><span class="nam">add_argument</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis mis2 show_mis"><span class="n"><a id="t19" href="#t19">19</a></span><span class="t">        <span class="str">"--reset-discovery"</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis mis2 show_mis"><span class="n"><a id="t20" href="#t20">20</a></span><span class="t">        <span class="nam">action</span><span class="op">=</span><span class="str">"store_true"</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis mis2 show_mis"><span class="n"><a id="t19" href="#t19">19</a></span><span class="t">        <span class="str">&quot;--reset-discovery&quot;</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis mis2 show_mis"><span class="n"><a id="t20" href="#t20">20</a></span><span class="t">        <span class="nam">action</span><span class="op">=</span><span class="str">&quot;store_true&quot;</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis mis2 show_mis"><span class="n"><a id="t21" href="#t21">21</a></span><span class="t">        <span class="nam">help</span><span class="op">=</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis mis2 show_mis"><span class="n"><a id="t22" href="#t22">22</a></span><span class="t">            <span class="str">"Clear this coach's retained HA discovery, then exit. Run it once "</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis mis2 show_mis"><span class="n"><a id="t23" href="#t23">23</a></span><span class="t">            <span class="str">"after renaming fixtures or zones in the instance map: HA keeps the "</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis mis2 show_mis"><span class="n"><a id="t24" href="#t24">24</a></span><span class="t">            <span class="str">"entity_id it assigned at first registration, so entities must be "</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis mis2 show_mis"><span class="n"><a id="t25" href="#t25">25</a></span><span class="t">            <span class="str">"retired before the next start can re-register them under their "</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis mis2 show_mis"><span class="n"><a id="t26" href="#t26">26</a></span><span class="t">            <span class="str">"current names."</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis mis2 show_mis"><span class="n"><a id="t22" href="#t22">22</a></span><span class="t">            <span class="str">&quot;Clear this coach&#x27;s retained HA discovery, then exit. Run it once &quot;</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis mis2 show_mis"><span class="n"><a id="t23" href="#t23">23</a></span><span class="t">            <span class="str">&quot;after renaming fixtures or zones in the instance map: HA keeps the &quot;</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis mis2 show_mis"><span class="n"><a id="t24" href="#t24">24</a></span><span class="t">            <span class="str">&quot;entity_id it assigned at first registration, so entities must be &quot;</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis mis2 show_mis"><span class="n"><a id="t25" href="#t25">25</a></span><span class="t">            <span class="str">&quot;retired before the next start can re-register them under their &quot;</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis mis2 show_mis"><span class="n"><a id="t26" href="#t26">26</a></span><span class="t">            <span class="str">&quot;current names.&quot;</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis mis2 show_mis"><span class="n"><a id="t27" href="#t27">27</a></span><span class="t">        <span class="op">)</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis mis2 show_mis"><span class="n"><a id="t28" href="#t28">28</a></span><span class="t">    <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t29" href="#t29">29</a></span><span class="t">    <span class="key">return</span> <span class="nam">parser</span><span class="op">.</span><span class="nam">parse_args</span><span class="op">(</span><span class="nam">argv</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t30" href="#t30">30</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t31" href="#t31">31</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="exc show_exc"><span class="n"><a id="t32" href="#t32">32</a></span><span class="t"><span class="key">def</span> <span class="nam">main</span><span class="op">(</span><span class="nam">argv</span><span class="op">:</span> <span class="nam">list</span><span class="op">[</span><span class="nam">str</span><span class="op">]</span> <span class="op">|</span> <span class="key">None</span> <span class="op">=</span> <span class="key">None</span><span class="op">)</span> <span class="op">-></span> <span class="nam">int</span><span class="op">:</span>  <span class="com"># pragma: no cover - daemon shell</span>&nbsp;</span><span class="r"></span></p>
+    <p class="exc show_exc"><span class="n"><a id="t32" href="#t32">32</a></span><span class="t"><span class="key">def</span> <span class="nam">main</span><span class="op">(</span><span class="nam">argv</span><span class="op">:</span> <span class="nam">list</span><span class="op">[</span><span class="nam">str</span><span class="op">]</span> <span class="op">|</span> <span class="key">None</span> <span class="op">=</span> <span class="key">None</span><span class="op">)</span> <span class="op">-&gt;</span> <span class="nam">int</span><span class="op">:</span>  <span class="com"># pragma: no cover - daemon shell</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t33" href="#t33">33</a></span><span class="t">    <span class="nam">args</span> <span class="op">=</span> <span class="nam">_parse_args</span><span class="op">(</span><span class="nam">argv</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t34" href="#t34">34</a></span><span class="t">    <span class="nam">logging</span><span class="op">.</span><span class="nam">basicConfig</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t35" href="#t35">35</a></span><span class="t">        <span class="nam">level</span><span class="op">=</span><span class="nam">logging</span><span class="op">.</span><span class="nam">INFO</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc show_exc"><span class="n"><a id="t36" href="#t36">36</a></span><span class="t">        <span class="nam">format</span><span class="op">=</span><span class="str">"%(asctime)s %(levelname)s %(name)s: %(message)s"</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="exc show_exc"><span class="n"><a id="t36" href="#t36">36</a></span><span class="t">        <span class="nam">format</span><span class="op">=</span><span class="str">&quot;%(asctime)s %(levelname)s %(name)s: %(message)s&quot;</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t37" href="#t37">37</a></span><span class="t">    <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t38" href="#t38">38</a></span><span class="t">    <span class="nam">settings</span> <span class="op">=</span> <span class="nam">BridgeSettings</span><span class="op">(</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t39" href="#t39">39</a></span><span class="t">    <span class="nam">bridge</span> <span class="op">=</span> <span class="nam">RvcBridge</span><span class="op">(</span><span class="nam">settings</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t40" href="#t40">40</a></span><span class="t">    <span class="nam">log</span> <span class="op">=</span> <span class="nam">logging</span><span class="op">.</span><span class="nam">getLogger</span><span class="op">(</span><span class="nam">__name__</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t41" href="#t41">41</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t42" href="#t42">42</a></span><span class="t">    <span class="key">if</span> <span class="nam">args</span><span class="op">.</span><span class="nam">reset_discovery</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc show_exc"><span class="n"><a id="t43" href="#t43">43</a></span><span class="t">        <span class="nam">log</span><span class="op">.</span><span class="nam">info</span><span class="op">(</span><span class="str">"clearing retained discovery on %s"</span><span class="op">,</span> <span class="nam">settings</span><span class="op">.</span><span class="nam">mqtt_url</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="exc show_exc"><span class="n"><a id="t43" href="#t43">43</a></span><span class="t">        <span class="nam">log</span><span class="op">.</span><span class="nam">info</span><span class="op">(</span><span class="str">&quot;clearing retained discovery on %s&quot;</span><span class="op">,</span> <span class="nam">settings</span><span class="op">.</span><span class="nam">mqtt_url</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t44" href="#t44">44</a></span><span class="t">        <span class="nam">asyncio</span><span class="op">.</span><span class="nam">run</span><span class="op">(</span><span class="nam">bridge</span><span class="op">.</span><span class="nam">reset_discovery</span><span class="op">(</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t45" href="#t45">45</a></span><span class="t">        <span class="key">return</span> <span class="num">0</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t46" href="#t46">46</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t47" href="#t47">47</a></span><span class="t">    <span class="nam">log</span><span class="op">.</span><span class="nam">info</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc show_exc"><span class="n"><a id="t48" href="#t48">48</a></span><span class="t">        <span class="str">"starting RV-C bridge on %s (listen_only=%s)"</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="exc show_exc"><span class="n"><a id="t48" href="#t48">48</a></span><span class="t">        <span class="str">&quot;starting RV-C bridge on %s (listen_only=%s)&quot;</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t49" href="#t49">49</a></span><span class="t">        <span class="nam">settings</span><span class="op">.</span><span class="nam">can_channel</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t50" href="#t50">50</a></span><span class="t">        <span class="nam">settings</span><span class="op">.</span><span class="nam">listen_only</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t51" href="#t51">51</a></span><span class="t">    <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
@@ -138,7 +138,7 @@
     <p class="exc show_exc"><span class="n"><a id="t54" href="#t54">54</a></span><span class="t">    <span class="key">return</span> <span class="num">0</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t55" href="#t55">55</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t56" href="#t56">56</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="exc show_exc"><span class="n"><a id="t57" href="#t57">57</a></span><span class="t"><span class="key">if</span> <span class="nam">__name__</span> <span class="op">==</span> <span class="str">"__main__"</span><span class="op">:</span>  <span class="com"># pragma: no cover</span>&nbsp;</span><span class="r"></span></p>
+    <p class="exc show_exc"><span class="n"><a id="t57" href="#t57">57</a></span><span class="t"><span class="key">if</span> <span class="nam">__name__</span> <span class="op">==</span> <span class="str">&quot;__main__&quot;</span><span class="op">:</span>  <span class="com"># pragma: no cover</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc show_exc"><span class="n"><a id="t58" href="#t58">58</a></span><span class="t">    <span class="key">raise</span> <span class="nam">SystemExit</span><span class="op">(</span><span class="nam">main</span><span class="op">(</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
 </main>
 <footer>
@@ -148,8 +148,8 @@
             <a class="nav" href="index.html">&Hat; index</a> &nbsp; &nbsp;
             <a class="nav" href="z_6bc81d4eb3c6d5a4_analysis_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
-            <a class="nav" href="https://coverage.readthedocs.io/en/7.15.2">coverage.py v7.15.2</a>,
-            created at 2026-07-28 20:01 +0000
+            <a class="nav" href="https://coverage.readthedocs.io/en/7.17.5">coverage.py v7.17.5</a>,
+            created at 2026-11-28 00:14 +0000
         </p>
     </div>
 </footer>
