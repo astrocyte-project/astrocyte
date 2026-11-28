@@ -9,6 +9,8 @@ Package versions are derived from `v*` git tags (see
 
 ## [Unreleased]
 
+## [0.3.7] — 2026-11-27
+
 ### Added
 
 - **The coach node has a front door you can reach (`--profile proxy`, #91,
@@ -583,7 +585,8 @@ everything the coach's always-on node runs, plus the Phase-0 foundation
   (`docs/project-management.md`, `.github/labels.md`, project-setup runbook) and
   ADR-009; full triage of the existing backlog onto the "Astrocyte 1.0" board.
 
-[Unreleased]: https://github.com/astrocyte-project/astrocyte/compare/v0.3.6...HEAD
+[Unreleased]: https://github.com/astrocyte-project/astrocyte/compare/v0.3.7...HEAD
+[0.3.7]: https://github.com/astrocyte-project/astrocyte/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/astrocyte-project/astrocyte/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/astrocyte-project/astrocyte/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/astrocyte-project/astrocyte/compare/v0.3.3...v0.3.4
