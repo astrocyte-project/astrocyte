@@ -34,6 +34,19 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # ---- Runtime: minimal image with just the venv ----------------------------
 FROM python:3.14-slim-bookworm AS runtime
 
+# Debian security updates the base image has not picked up yet (bookworm is in
+# LTS; its images are rebuilt less often than its packages are patched).
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# The app runs from its own venv, which has no pip. The interpreter's pip, and
+# the wheel ensurepip would install it from, are dead weight that a scanner
+# reads as ours: pip vendors its own (older) urllib3, msgpack and setuptools.
+# Version-agnostic, so a Python bump does not have to touch this.
+RUN python -m pip uninstall -y pip \
+    && rm -rf "$(python -c 'import ensurepip, os; print(os.path.dirname(ensurepip.__file__))')/_bundled"
+
 RUN useradd --create-home --uid 1000 astrocyte
 WORKDIR /app
 
