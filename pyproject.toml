@@ -13,7 +13,7 @@ keywords = ["self-hosted", "ai", "agents", "mcp", "rag", "docker"]
 dynamic = ["version"]
 dependencies = [
     "fastapi>=0.140.7",
-    "uvicorn[standard]>=0.51.0",
+    "uvicorn[standard]>=0.54.0",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "httpx>=0.28",
@@ -55,7 +55,7 @@ rvc = [       # RV-C CAN bridge & decoder (ADR-012)
     "msgpack>=1.0",
 ]
 ha = [        # Home Assistant client + MCP server (ADR-011)
-    "websockets>=16.1.1",
+    "websockets>=17.4",
 ]
 
 [dependency-groups]
