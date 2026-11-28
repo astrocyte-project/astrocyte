@@ -12,12 +12,12 @@ authors = [{ name = "astrocyte-project" }]
 keywords = ["self-hosted", "ai", "agents", "mcp", "rag", "docker"]
 dynamic = ["version"]
 dependencies = [
-    "fastapi>=0.140.7",
+    "fastapi>=0.165.0",
     "uvicorn[standard]>=0.54.0",
-    "pydantic>=2.9",
-    "pydantic-settings>=2.6",
+    "pydantic>=2.14.4",
+    "pydantic-settings>=2.16.3",
     "httpx>=0.28",
-    "pyyaml>=6.0",
+    "pyyaml>=6.0.4",
     # Prometheus /metrics for the observability stack (ADR-006 / issue #33).
     "prometheus-fastapi-instrumentator>=8.1.0",
 ]
@@ -39,8 +39,8 @@ astro-rvc-analyze = "astrocyte.rvc.analysis:main"
 agents = [    # LlamaIndex + Ollama (ADR-002 / ADR-004) — deliberately slim:
     # only core + the Ollama LLM binding, not the fat meta-package (CVE and
     # image-size surface, see ADR-010 delivery notes).
-    "llama-index-core>=0.12",
-    "llama-index-llms-ollama>=0.5",
+    "llama-index-core>=0.14.26",
+    "llama-index-llms-ollama>=0.12.0",
 ]
 rag = []      # ChromaDB + embedding pipeline (ADR-003) — Phase 2
 mcp = [       # FastMCP servers (ADR-007)
@@ -60,9 +60,9 @@ ha = [        # Home Assistant client + MCP server (ADR-011)
 
 [dependency-groups]
 dev = [
-    "ruff>=0.16.0",
-    "mypy>=2.3.0",
-    "pytest>=8.3",
+    "ruff>=0.17.6",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
     "pytest-cov>=6.0",
     "httpx>=0.28",
     # Renders the discovery brightness template in tests — the template itself
@@ -70,7 +70,7 @@ dev = [
     # scaling regression.
     "jinja2>=3.1",
     "pip-audit>=2.7",
-    "pre-commit>=4.6.1",
+    "pre-commit>=4.7.0",
     "types-pyyaml>=6.0.12.20260724",
 ]
 
