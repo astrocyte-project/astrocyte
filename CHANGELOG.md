@@ -15,6 +15,15 @@ Package versions are derived from `v*` git tags (see
   zod), which had begun failing the required `security` job on every pull
   request. Lockfile only; the web UI's lint, type check, tests and build are
   unchanged.
+- **The API image's Python dependencies updated past 93 high and critical
+  findings** (aiohttp, Authlib, cryptography, mcp, pillow, PyJWT, urllib3 and
+  others), all with fixed releases, by upgrading only the flagged packages in
+  `uv.lock`. `pyproject.toml` is unchanged.
+- **The API image's runtime stage no longer ships the interpreter's own pip**,
+  nor the wheel `ensurepip` installs it from. The app runs from its venv, which
+  has no pip; the system copy vendored older urllib3, msgpack and setuptools
+  that scanners rightly count against the image. The stage also applies
+  Debian's pending security updates (a patched `libpam-modules`).
 
 ### Fixed
 
